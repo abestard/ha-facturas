@@ -4,3 +4,6 @@ __pycache__/
 .venv/
 .coverage
 htmlcov/
+
+# El plan vive en el repo de Jarvis; esta copia es solo local.
+PLAN_FACTURAS.md
