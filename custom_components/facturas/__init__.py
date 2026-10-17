@@ -1,0 +1,33 @@
+"""Facturas: servicios que se pagan, sus precios, vencimientos y lo pagado cada mes."""
+
+from __future__ import annotations
+
+from homeassistant.core import HomeAssistant
+from homeassistant.helpers import config_validation as cv
+from homeassistant.helpers.typing import ConfigType
+
+from .const import DOMAIN
+from .nucleo import Facturas, FacturasConfigEntry
+from .servicios import registrar_acciones
+
+CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
+
+
+async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
+    """Registra las acciones (existen aunque la integración todavía no esté configurada)."""
+    registrar_acciones(hass)
+    return True
+
+
+async def async_setup_entry(hass: HomeAssistant, entry: FacturasConfigEntry) -> bool:
+    facturas = await Facturas.crear(hass, entry)
+    await facturas.iniciar()
+    entry.runtime_data = facturas
+    entry.async_on_unload(facturas.detener)
+    return True
+
+
+async def async_unload_entry(hass: HomeAssistant, entry: FacturasConfigEntry) -> bool:
+    # Los datos en .storage/facturas no se borran nunca desde acá, ni al quitar la integración:
+    # si se vuelve a agregar, el historial sigue ahí.
+    return True

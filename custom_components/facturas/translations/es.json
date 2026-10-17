@@ -1,0 +1,353 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Facturas",
+        "description": "Facturas y servicios: precios, vencimientos y pagos.",
+        "data": {
+          "moneda_principal": "Moneda principal",
+          "dias_aviso": "Días de aviso"
+        },
+        "data_description": {
+          "moneda_principal": "La moneda que se muestra primero en los resúmenes.",
+          "dias_aviso": "Cuántos días antes del vencimiento avisar."
+        }
+      }
+    },
+    "abort": {
+      "single_instance_allowed": "Facturas ya está configurada."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Facturas",
+        "data": {
+          "moneda_principal": "Moneda principal",
+          "dias_aviso": "Días de aviso"
+        },
+        "data_description": {
+          "moneda_principal": "La moneda que se muestra primero en los resúmenes.",
+          "dias_aviso": "Cuántos días antes del vencimiento avisar."
+        }
+      }
+    }
+  },
+  "selector": {
+    "moneda": {
+      "options": {
+        "pesos": "Pesos",
+        "dolares": "Dólares"
+      }
+    },
+    "pago": {
+      "options": {
+        "manual": "Manual",
+        "debito": "Débito automático"
+      }
+    },
+    "tipo": {
+      "options": {
+        "fijo": "Fijo",
+        "consumo": "Por consumo"
+      }
+    },
+    "origen": {
+      "options": {
+        "manual": "Manual",
+        "correo": "Correo",
+        "alex": "Alex"
+      }
+    },
+    "moneda_principal": {
+      "options": {
+        "pesos": "Pesos",
+        "dolares": "Dólares"
+      }
+    },
+    "meses": {
+      "options": {
+        "1": "Enero",
+        "2": "Febrero",
+        "3": "Marzo",
+        "4": "Abril",
+        "5": "Mayo",
+        "6": "Junio",
+        "7": "Julio",
+        "8": "Agosto",
+        "9": "Septiembre",
+        "10": "Octubre",
+        "11": "Noviembre",
+        "12": "Diciembre"
+      }
+    }
+  },
+  "services": {
+    "agregar_servicio": {
+      "name": "Agregar servicio",
+      "description": "Da de alta un servicio a pagar y genera sus pagos hasta este mes.",
+      "fields": {
+        "nombre": {
+          "name": "Nombre",
+          "description": "Nombre del servicio."
+        },
+        "importe": {
+          "name": "Importe",
+          "description": "Precio actual."
+        },
+        "categoria": {
+          "name": "Categoría",
+          "description": "Categoría (casa, comunicaciones, seguros, suscripciones...)."
+        },
+        "moneda": {
+          "name": "Moneda",
+          "description": "Moneda del servicio."
+        },
+        "pago": {
+          "name": "Forma de pago",
+          "description": "Pago manual o débito automático."
+        },
+        "tipo": {
+          "name": "Tipo",
+          "description": "Importe fijo o por consumo (el real suele cambiar)."
+        },
+        "dia_vence": {
+          "name": "Día de vencimiento",
+          "description": "Día aproximado de vencimiento (el último si el mes tiene menos días)."
+        },
+        "meses": {
+          "name": "Meses",
+          "description": "Meses en que se paga (todos = mensual)."
+        },
+        "desde": {
+          "name": "Desde",
+          "description": "Primer mes del servicio (AAAA-MM). Por defecto, este mes."
+        },
+        "remitente": {
+          "name": "Remitente",
+          "description": "Correo desde el que llega la factura."
+        },
+        "notas": {
+          "name": "Notas",
+          "description": "Notas libres."
+        }
+      }
+    },
+    "editar_servicio": {
+      "name": "Editar servicio",
+      "description": "Cambia los datos de un servicio (no el precio: para eso está Cambiar precio).",
+      "fields": {
+        "servicio": {
+          "name": "Servicio",
+          "description": "Id o nombre del servicio."
+        },
+        "nombre": {
+          "name": "Nombre",
+          "description": "Nombre del servicio."
+        },
+        "categoria": {
+          "name": "Categoría",
+          "description": "Categoría (casa, comunicaciones, seguros, suscripciones...)."
+        },
+        "moneda": {
+          "name": "Moneda",
+          "description": "Moneda del servicio."
+        },
+        "pago": {
+          "name": "Forma de pago",
+          "description": "Pago manual o débito automático."
+        },
+        "tipo": {
+          "name": "Tipo",
+          "description": "Importe fijo o por consumo (el real suele cambiar)."
+        },
+        "dia_vence": {
+          "name": "Día de vencimiento",
+          "description": "Día aproximado de vencimiento (el último si el mes tiene menos días)."
+        },
+        "meses": {
+          "name": "Meses",
+          "description": "Meses en que se paga (todos = mensual)."
+        },
+        "remitente": {
+          "name": "Remitente",
+          "description": "Correo desde el que llega la factura."
+        },
+        "notas": {
+          "name": "Notas",
+          "description": "Notas libres."
+        }
+      }
+    },
+    "dar_de_baja": {
+      "name": "Dar de baja",
+      "description": "Deja de generar pagos; el historial se conserva.",
+      "fields": {
+        "servicio": {
+          "name": "Servicio",
+          "description": "Id o nombre del servicio."
+        }
+      }
+    },
+    "reactivar": {
+      "name": "Reactivar",
+      "description": "Vuelve a activar un servicio dado de baja, desde este mes.",
+      "fields": {
+        "servicio": {
+          "name": "Servicio",
+          "description": "Id o nombre del servicio."
+        }
+      }
+    },
+    "cambiar_precio": {
+      "name": "Cambiar precio",
+      "description": "Precio nuevo desde un mes. Los meses anteriores quedan como estaban.",
+      "fields": {
+        "servicio": {
+          "name": "Servicio",
+          "description": "Id o nombre del servicio."
+        },
+        "importe": {
+          "name": "Importe",
+          "description": "Precio nuevo."
+        },
+        "desde": {
+          "name": "Desde",
+          "description": "Mes (AAAA-MM). Por defecto, el mes actual."
+        }
+      }
+    },
+    "anotar_importe": {
+      "name": "Anotar importe",
+      "description": "Anota el importe real de un mes antes de pagarlo (llegó la factura).",
+      "fields": {
+        "servicio": {
+          "name": "Servicio",
+          "description": "Id o nombre del servicio."
+        },
+        "importe": {
+          "name": "Importe",
+          "description": "Importe real de la factura."
+        },
+        "periodo": {
+          "name": "Período",
+          "description": "Mes (AAAA-MM). Por defecto, el pendiente más viejo."
+        },
+        "nota": {
+          "name": "Nota",
+          "description": "Nota (descuento, recargo...)."
+        },
+        "origen": {
+          "name": "Origen",
+          "description": "De dónde salió el dato."
+        }
+      }
+    },
+    "registrar_pago": {
+      "name": "Registrar pago",
+      "description": "Marca un pago como hecho. También sirve para pagar por adelantado.",
+      "fields": {
+        "servicio": {
+          "name": "Servicio",
+          "description": "Id o nombre del servicio."
+        },
+        "periodo": {
+          "name": "Período",
+          "description": "Mes (AAAA-MM). Por defecto, el pendiente más viejo."
+        },
+        "importe": {
+          "name": "Importe",
+          "description": "Importe real pagado. Por defecto, el anotado o el estimado."
+        },
+        "fecha": {
+          "name": "Fecha",
+          "description": "Fecha de pago. Por defecto, hoy."
+        },
+        "nota": {
+          "name": "Nota",
+          "description": "Nota (descuento, recargo...)."
+        },
+        "origen": {
+          "name": "Origen",
+          "description": "De dónde salió el dato."
+        }
+      }
+    },
+    "corregir_pago": {
+      "name": "Corregir pago",
+      "description": "Corrige el importe real, la fecha de pago o la nota.",
+      "fields": {
+        "servicio": {
+          "name": "Servicio",
+          "description": "Id o nombre del servicio."
+        },
+        "periodo": {
+          "name": "Período",
+          "description": "Mes (AAAA-MM)."
+        },
+        "importe": {
+          "name": "Importe",
+          "description": "Importe real."
+        },
+        "fecha": {
+          "name": "Fecha",
+          "description": "Fecha de pago."
+        },
+        "nota": {
+          "name": "Nota",
+          "description": "Nota (descuento, recargo...)."
+        }
+      }
+    },
+    "deshacer_pago": {
+      "name": "Deshacer pago",
+      "description": "Vuelve a pendiente un pago registrado u omitido.",
+      "fields": {
+        "servicio": {
+          "name": "Servicio",
+          "description": "Id o nombre del servicio."
+        },
+        "periodo": {
+          "name": "Período",
+          "description": "Mes (AAAA-MM)."
+        }
+      }
+    },
+    "omitir": {
+      "name": "Omitir",
+      "description": "Este mes no se paga: no cuenta en los totales.",
+      "fields": {
+        "servicio": {
+          "name": "Servicio",
+          "description": "Id o nombre del servicio."
+        },
+        "periodo": {
+          "name": "Período",
+          "description": "Mes (AAAA-MM). Por defecto, el pendiente más viejo."
+        },
+        "nota": {
+          "name": "Nota",
+          "description": "Nota (descuento, recargo...)."
+        }
+      }
+    },
+    "resumen": {
+      "name": "Resumen",
+      "description": "Devuelve el mes, el año, los pagos pendientes y los servicios.",
+      "fields": {
+        "periodo": {
+          "name": "Período",
+          "description": "Mes (AAAA-MM). Por defecto, este mes."
+        },
+        "anio": {
+          "name": "Año",
+          "description": "Año del resumen anual. Por defecto, el actual."
+        },
+        "servicio": {
+          "name": "Servicio",
+          "description": "Además devuelve las estadísticas de este servicio."
+        }
+      }
+    }
+  }
+}

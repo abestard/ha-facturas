@@ -1,0 +1,13 @@
+{
+  "domain": "facturas",
+  "name": "Facturas",
+  "codeowners": ["@abestard"],
+  "config_flow": true,
+  "documentation": "https://github.com/abestard/ha-facturas",
+  "integration_type": "service",
+  "iot_class": "calculated",
+  "issue_tracker": "https://github.com/abestard/ha-facturas/issues",
+  "requirements": [],
+  "single_config_entry": true,
+  "version": "0.1.0"
+}

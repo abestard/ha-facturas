@@ -4,8 +4,8 @@ Integración personalizada para llevar los servicios que se pagan (luz, agua, in
 suscripciones...): su precio y su historial, cuándo vencen y cada cuánto, lo pagado, lo que falta y lo que
 costó de verdad cada mes.
 
-> **Estado: en desarrollo.** La lógica de cálculo está hecha y probada; la integración (entidades, acciones y
-> panel) todavía no. No instalar aún.
+> **Estado: en desarrollo (v0.1.0).** Ya funcionan la instalación desde la interfaz, el guardado y las acciones;
+> las entidades (sensores, lista y calendario) y el panel llegan en las próximas versiones.
 
 ## Qué hace
 
@@ -17,6 +17,38 @@ costó de verdad cada mes.
   contra real, subidas de precio y la previsión de los próximos 12 meses. Los totales se llevan por moneda,
   sin convertir.
 - Todo local: los datos quedan en `.storage/` del propio Home Assistant, sin internet ni servicios externos.
+
+## Acciones
+
+Todas aceptan el servicio por su id o por su nombre (`UTE`, `antel`). Las que cambian datos pueden devolver
+lo que cambiaron; `facturas.resumen` siempre devuelve datos.
+
+| Acción | Para qué |
+|---|---|
+| `facturas.agregar_servicio` | Alta: nombre, importe, categoría, moneda, forma de pago, tipo, día de vencimiento, meses, desde |
+| `facturas.editar_servicio` | Cambiar los datos del servicio (no el precio) |
+| `facturas.dar_de_baja` / `facturas.reactivar` | Dejar de generar pagos (el historial queda) / volver a generarlos |
+| `facturas.cambiar_precio` | Precio nuevo desde un mes; lo anterior no cambia |
+| `facturas.anotar_importe` | El importe real de un mes antes de pagarlo (llegó la factura) |
+| `facturas.registrar_pago` | Marcar como pagado: período (por defecto el pendiente más viejo), importe real, fecha, nota |
+| `facturas.corregir_pago` | Corregir el importe real, la fecha o la nota de un pago |
+| `facturas.deshacer_pago` / `facturas.omitir` | Volver a pendiente / "este mes no se paga" |
+| `facturas.resumen` | El mes, el año, los pendientes, el próximo vencimiento y los servicios |
+
+Ejemplo, en Herramientas para desarrolladores → Acciones:
+
+```yaml
+action: facturas.agregar_servicio
+data:
+  nombre: UTE
+  importe: 1500
+  categoria: casa
+  tipo: consumo
+  dia_vence: 12
+```
+
+Los pagos de cada mes se generan solos el día 1 (y al arrancar Home Assistant, por si estuvo apagado). Los
+datos quedan en `.storage/facturas` y entran en las copias de seguridad; quitar la integración no los borra.
 
 ## Requisitos
 

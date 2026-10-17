@@ -1,0 +1,232 @@
+agregar_servicio:
+  fields:
+    nombre:
+      required: true
+      example: "UTE"
+      selector:
+        text:
+    importe:
+      required: true
+      example: 1500
+      selector:
+        number:
+          min: 0
+          max: 10000000
+          step: 0.01
+          mode: box
+    categoria:
+      example: "casa"
+      selector:
+        text:
+    moneda:
+      default: pesos
+      selector:
+        select:
+          options: [pesos, dolares]
+          translation_key: moneda
+    pago:
+      default: manual
+      selector:
+        select:
+          options: [manual, debito]
+          translation_key: pago
+    tipo:
+      default: fijo
+      selector:
+        select:
+          options: [fijo, consumo]
+          translation_key: tipo
+    dia_vence:
+      default: 10
+      selector:
+        number:
+          min: 1
+          max: 31
+          mode: box
+    meses:
+      example: [1, 4, 7, 10]
+      selector:
+        select:
+          multiple: true
+          options: &meses
+            - { value: "1", label: "1" }
+            - { value: "2", label: "2" }
+            - { value: "3", label: "3" }
+            - { value: "4", label: "4" }
+            - { value: "5", label: "5" }
+            - { value: "6", label: "6" }
+            - { value: "7", label: "7" }
+            - { value: "8", label: "8" }
+            - { value: "9", label: "9" }
+            - { value: "10", label: "10" }
+            - { value: "11", label: "11" }
+            - { value: "12", label: "12" }
+          translation_key: meses
+    desde:
+      example: "2026-10"
+      selector:
+        text:
+    remitente:
+      example: "facturas@ute.com.uy"
+      selector:
+        text:
+    notas:
+      selector:
+        text:
+          multiline: true
+
+editar_servicio:
+  fields:
+    servicio: &servicio
+      required: true
+      example: "UTE"
+      selector:
+        text:
+    nombre:
+      selector:
+        text:
+    categoria:
+      selector:
+        text:
+    moneda:
+      selector:
+        select:
+          options: [pesos, dolares]
+          translation_key: moneda
+    pago:
+      selector:
+        select:
+          options: [manual, debito]
+          translation_key: pago
+    tipo:
+      selector:
+        select:
+          options: [fijo, consumo]
+          translation_key: tipo
+    dia_vence:
+      selector:
+        number:
+          min: 1
+          max: 31
+          mode: box
+    meses:
+      selector:
+        select:
+          multiple: true
+          options: *meses
+          translation_key: meses
+    remitente:
+      selector:
+        text:
+    notas:
+      selector:
+        text:
+          multiline: true
+
+dar_de_baja:
+  fields:
+    servicio: *servicio
+
+reactivar:
+  fields:
+    servicio: *servicio
+
+cambiar_precio:
+  fields:
+    servicio: *servicio
+    importe: &importe
+      required: true
+      example: 1650
+      selector:
+        number:
+          min: 0
+          max: 10000000
+          step: 0.01
+          mode: box
+    desde:
+      example: "2026-11"
+      selector:
+        text:
+
+anotar_importe:
+  fields:
+    servicio: *servicio
+    importe: *importe
+    periodo: &periodo
+      example: "2026-10"
+      selector:
+        text:
+    nota: &nota
+      selector:
+        text:
+    origen: &origen
+      selector:
+        select:
+          options: [manual, correo, alex]
+          translation_key: origen
+
+registrar_pago:
+  fields:
+    servicio: *servicio
+    periodo: *periodo
+    importe:
+      example: 1490
+      selector:
+        number:
+          min: 0
+          max: 10000000
+          step: 0.01
+          mode: box
+    fecha: &fecha
+      selector:
+        date:
+    nota: *nota
+    origen: *origen
+
+corregir_pago:
+  fields:
+    servicio: *servicio
+    periodo:
+      required: true
+      example: "2026-10"
+      selector:
+        text:
+    importe:
+      selector:
+        number:
+          min: 0
+          max: 10000000
+          step: 0.01
+          mode: box
+    fecha: *fecha
+    nota: *nota
+
+deshacer_pago:
+  fields:
+    servicio: *servicio
+    periodo:
+      required: true
+      example: "2026-10"
+      selector:
+        text:
+
+omitir:
+  fields:
+    servicio: *servicio
+    periodo: *periodo
+    nota: *nota
+
+resumen:
+  fields:
+    periodo: *periodo
+    anio:
+      example: 2026
+      selector:
+        number:
+          min: 2000
+          max: 2100
+          mode: box
+    servicio:
+      example: "UTE"
+      selector:
+        text:

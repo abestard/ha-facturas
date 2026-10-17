@@ -1,0 +1,353 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Facturas",
+        "description": "Bills and services: prices, due dates and payments.",
+        "data": {
+          "moneda_principal": "Main currency",
+          "dias_aviso": "Reminder days"
+        },
+        "data_description": {
+          "moneda_principal": "Currency shown first in the summaries.",
+          "dias_aviso": "How many days before the due date to remind."
+        }
+      }
+    },
+    "abort": {
+      "single_instance_allowed": "Facturas is already configured."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Facturas",
+        "data": {
+          "moneda_principal": "Main currency",
+          "dias_aviso": "Reminder days"
+        },
+        "data_description": {
+          "moneda_principal": "Currency shown first in the summaries.",
+          "dias_aviso": "How many days before the due date to remind."
+        }
+      }
+    }
+  },
+  "selector": {
+    "moneda": {
+      "options": {
+        "pesos": "Pesos",
+        "dolares": "Dollars"
+      }
+    },
+    "pago": {
+      "options": {
+        "manual": "Manual",
+        "debito": "Automatic debit"
+      }
+    },
+    "tipo": {
+      "options": {
+        "fijo": "Fixed",
+        "consumo": "Consumption"
+      }
+    },
+    "origen": {
+      "options": {
+        "manual": "Manual",
+        "correo": "Email",
+        "alex": "Alex"
+      }
+    },
+    "moneda_principal": {
+      "options": {
+        "pesos": "Pesos",
+        "dolares": "Dollars"
+      }
+    },
+    "meses": {
+      "options": {
+        "1": "January",
+        "2": "February",
+        "3": "March",
+        "4": "April",
+        "5": "May",
+        "6": "June",
+        "7": "July",
+        "8": "August",
+        "9": "September",
+        "10": "October",
+        "11": "November",
+        "12": "December"
+      }
+    }
+  },
+  "services": {
+    "agregar_servicio": {
+      "name": "Add service",
+      "description": "Adds a service to pay and generates its payments up to this month.",
+      "fields": {
+        "nombre": {
+          "name": "Name",
+          "description": "Name of the service."
+        },
+        "importe": {
+          "name": "Amount",
+          "description": "Current price."
+        },
+        "categoria": {
+          "name": "Category",
+          "description": "Category (home, communications, insurance, subscriptions...)."
+        },
+        "moneda": {
+          "name": "Currency",
+          "description": "Currency of the service."
+        },
+        "pago": {
+          "name": "Payment method",
+          "description": "Manual payment or automatic debit."
+        },
+        "tipo": {
+          "name": "Type",
+          "description": "Fixed amount or consumption-based (the real amount usually changes)."
+        },
+        "dia_vence": {
+          "name": "Due day",
+          "description": "Approximate due day (the last day if the month is shorter)."
+        },
+        "meses": {
+          "name": "Months",
+          "description": "Months when it is paid (all of them = monthly)."
+        },
+        "desde": {
+          "name": "From",
+          "description": "First month of the service (YYYY-MM). Defaults to this month."
+        },
+        "remitente": {
+          "name": "Sender",
+          "description": "Email address the bills come from."
+        },
+        "notas": {
+          "name": "Notes",
+          "description": "Free notes."
+        }
+      }
+    },
+    "editar_servicio": {
+      "name": "Edit service",
+      "description": "Changes the data of a service (not the price: use Change price).",
+      "fields": {
+        "servicio": {
+          "name": "Service",
+          "description": "Id or name of the service."
+        },
+        "nombre": {
+          "name": "Name",
+          "description": "Name of the service."
+        },
+        "categoria": {
+          "name": "Category",
+          "description": "Category (home, communications, insurance, subscriptions...)."
+        },
+        "moneda": {
+          "name": "Currency",
+          "description": "Currency of the service."
+        },
+        "pago": {
+          "name": "Payment method",
+          "description": "Manual payment or automatic debit."
+        },
+        "tipo": {
+          "name": "Type",
+          "description": "Fixed amount or consumption-based (the real amount usually changes)."
+        },
+        "dia_vence": {
+          "name": "Due day",
+          "description": "Approximate due day (the last day if the month is shorter)."
+        },
+        "meses": {
+          "name": "Months",
+          "description": "Months when it is paid (all of them = monthly)."
+        },
+        "remitente": {
+          "name": "Sender",
+          "description": "Email address the bills come from."
+        },
+        "notas": {
+          "name": "Notes",
+          "description": "Free notes."
+        }
+      }
+    },
+    "dar_de_baja": {
+      "name": "Deactivate service",
+      "description": "Stops generating payments; the history is kept.",
+      "fields": {
+        "servicio": {
+          "name": "Service",
+          "description": "Id or name of the service."
+        }
+      }
+    },
+    "reactivar": {
+      "name": "Reactivate service",
+      "description": "Activates a deactivated service again from this month.",
+      "fields": {
+        "servicio": {
+          "name": "Service",
+          "description": "Id or name of the service."
+        }
+      }
+    },
+    "cambiar_precio": {
+      "name": "Change price",
+      "description": "New price from a month on. Past months keep their price.",
+      "fields": {
+        "servicio": {
+          "name": "Service",
+          "description": "Id or name of the service."
+        },
+        "importe": {
+          "name": "Amount",
+          "description": "New price."
+        },
+        "desde": {
+          "name": "From",
+          "description": "Month (YYYY-MM). Defaults to the current month."
+        }
+      }
+    },
+    "anotar_importe": {
+      "name": "Record amount",
+      "description": "Records the real amount of a month before paying it (the bill arrived).",
+      "fields": {
+        "servicio": {
+          "name": "Service",
+          "description": "Id or name of the service."
+        },
+        "importe": {
+          "name": "Amount",
+          "description": "Real amount of the bill."
+        },
+        "periodo": {
+          "name": "Period",
+          "description": "Month (YYYY-MM). Defaults to the oldest pending one."
+        },
+        "nota": {
+          "name": "Note",
+          "description": "Note (discount, surcharge...)."
+        },
+        "origen": {
+          "name": "Source",
+          "description": "Where the data came from."
+        }
+      }
+    },
+    "registrar_pago": {
+      "name": "Register payment",
+      "description": "Marks a payment as done. Also for paying in advance.",
+      "fields": {
+        "servicio": {
+          "name": "Service",
+          "description": "Id or name of the service."
+        },
+        "periodo": {
+          "name": "Period",
+          "description": "Month (YYYY-MM). Defaults to the oldest pending one."
+        },
+        "importe": {
+          "name": "Amount",
+          "description": "Real amount paid. Defaults to the recorded or estimated amount."
+        },
+        "fecha": {
+          "name": "Date",
+          "description": "Payment date. Defaults to today."
+        },
+        "nota": {
+          "name": "Note",
+          "description": "Note (discount, surcharge...)."
+        },
+        "origen": {
+          "name": "Source",
+          "description": "Where the data came from."
+        }
+      }
+    },
+    "corregir_pago": {
+      "name": "Correct payment",
+      "description": "Corrects the real amount, payment date or note.",
+      "fields": {
+        "servicio": {
+          "name": "Service",
+          "description": "Id or name of the service."
+        },
+        "periodo": {
+          "name": "Period",
+          "description": "Month (YYYY-MM)."
+        },
+        "importe": {
+          "name": "Amount",
+          "description": "Real amount."
+        },
+        "fecha": {
+          "name": "Date",
+          "description": "Payment date."
+        },
+        "nota": {
+          "name": "Note",
+          "description": "Note (discount, surcharge...)."
+        }
+      }
+    },
+    "deshacer_pago": {
+      "name": "Undo payment",
+      "description": "Sets a paid or skipped payment back to pending.",
+      "fields": {
+        "servicio": {
+          "name": "Service",
+          "description": "Id or name of the service."
+        },
+        "periodo": {
+          "name": "Period",
+          "description": "Month (YYYY-MM)."
+        }
+      }
+    },
+    "omitir": {
+      "name": "Skip",
+      "description": "This month is not paid: it does not count in the totals.",
+      "fields": {
+        "servicio": {
+          "name": "Service",
+          "description": "Id or name of the service."
+        },
+        "periodo": {
+          "name": "Period",
+          "description": "Month (YYYY-MM). Defaults to the oldest pending one."
+        },
+        "nota": {
+          "name": "Note",
+          "description": "Note (discount, surcharge...)."
+        }
+      }
+    },
+    "resumen": {
+      "name": "Summary",
+      "description": "Returns the month, the year, the pending payments and the services.",
+      "fields": {
+        "periodo": {
+          "name": "Period",
+          "description": "Month (YYYY-MM). Defaults to this month."
+        },
+        "anio": {
+          "name": "Year",
+          "description": "Year for the yearly summary. Defaults to the current year."
+        },
+        "servicio": {
+          "name": "Service",
+          "description": "Also returns the statistics of this service."
+        }
+      }
+    }
+  }
+}
