@@ -1,0 +1,5 @@
+# Entorno de pruebas fijado a la versión del HA instalado (Core 2025.11.3, Python 3.13).
+# pytest-homeassistant-custom-component 0.13.297 es la que fija homeassistant==2025.11.3.
+pytest-homeassistant-custom-component==0.13.297
+# aiodns 3.5.0 (fijado por HA 2025.11.3) no funciona con pycares 5.x, que salió después.
+pycares==4.11.0
