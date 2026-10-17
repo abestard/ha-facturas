@@ -4,8 +4,8 @@ Integración personalizada para llevar los servicios que se pagan (luz, agua, in
 suscripciones...): su precio y su historial, cuándo vencen y cada cuánto, lo pagado, lo que falta y lo que
 costó de verdad cada mes.
 
-> **Estado: en desarrollo (v0.2.0).** Ya funcionan la instalación desde la interfaz, las acciones y las
-> entidades (sensores, lista y calendario); el panel llega en la próxima versión.
+> **Estado: en desarrollo (v0.3.0).** Ya funcionan la instalación desde la interfaz, las acciones, las
+> entidades (sensores, lista y calendario) y el panel; la pestaña de estadísticas llega en la próxima versión.
 
 ## Qué hace
 
@@ -17,6 +17,21 @@ costó de verdad cada mes.
   contra real, subidas de precio y la previsión de los próximos 12 meses. Los totales se llevan por moneda,
   sin convertir.
 - Todo local: los datos quedan en `.storage/` del propio Home Assistant, sin internet ni servicios externos.
+
+## El panel
+
+En la barra lateral aparece **Facturas** (solo para administradores; también en la app Companion):
+
+- **Este mes**: previsto, pagado y lo que falta; los vencidos de meses anteriores arriba, en rojo; cada pago
+  con su estado y los botones *Pagado* (importe real, fecha y nota), *Importe* (anotar la factura que llegó)
+  y *Omitir*. Las flechas cambian de mes.
+- **Servicios**: alta y edición (la periodicidad con casillas de meses y atajos), *Cambió el precio* desde un
+  mes, dar de baja y reactivar.
+- **Historial**: todos los pagos, filtrables por servicio y año, y *Exportar CSV* (separado por punto y
+  coma, como lo abre una planilla en español).
+
+Es un único archivo JavaScript sin librerías externas: funciona sin internet y sigue el tema de Home
+Assistant (claro u oscuro).
 
 ## Entidades
 
@@ -97,6 +112,31 @@ Assistant no se instala en Windows:
 docker build -f Dockerfile.pruebas -t ha-facturas-pruebas .
 docker run --rm -v "$PWD:/repo" ha-facturas-pruebas
 ```
+
+Para ver el panel en un Home Assistant 2025.11.3 de verdad, con la integración montada desde el repositorio
+(la configuración de prueba va en `dev/ha-config/`, que git ignora):
+
+```bash
+docker run -d --name ha-facturas-dev -p 8123:8123 -v "$PWD/dev/ha-config:/config" -v "$PWD/custom_components/facturas:/config/custom_components/facturas:ro" ghcr.io/home-assistant/home-assistant:2025.11.3
+```
+
+Con este `dev/ha-config/configuration.yaml`, la PC entra sin contraseña (por la red de Docker):
+
+```yaml
+default_config:
+
+homeassistant:
+  time_zone: America/Montevideo
+  language: es
+  auth_providers:
+    - type: trusted_networks
+      trusted_networks: [127.0.0.1, ::1, 172.16.0.0/12, 192.168.0.0/16]
+      allow_bypass_login: true
+    - type: homeassistant
+```
+
+Después de cambiar el código Python, `docker restart ha-facturas-dev`; si solo cambió el panel,
+alcanza con recargar el navegador.
 
 ## Licencia
 

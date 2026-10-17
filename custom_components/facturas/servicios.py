@@ -99,6 +99,7 @@ def pago_a_dict(datos: logica.Datos, pago: logica.Pago) -> dict[str, Any]:
         **asdict(pago),
         "nombre": servicio.nombre if servicio else pago.servicio_id,
         "moneda": servicio.moneda if servicio else "pesos",
+        "forma_pago": servicio.pago if servicio else "manual",
         "importe": pago.importe,
     }
 

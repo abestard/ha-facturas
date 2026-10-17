@@ -9,15 +9,18 @@ from homeassistant.helpers.typing import ConfigType
 
 from .const import DOMAIN
 from .nucleo import Facturas, FacturasConfigEntry
+from .panel import quitar_panel, registrar_panel
 from .servicios import registrar_acciones
+from .websocket import registrar_comandos
 
 CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 PLATAFORMAS = [Platform.SENSOR, Platform.TODO, Platform.CALENDAR]
 
 
 async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
-    """Registra las acciones (existen aunque la integración todavía no esté configurada)."""
+    """Registra las acciones y los comandos WebSocket (existen aunque la integración no esté configurada)."""
     registrar_acciones(hass)
+    registrar_comandos(hass)
     return True
 
 
@@ -27,6 +30,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: FacturasConfigEntry) -> 
     entry.runtime_data = facturas
     entry.async_on_unload(facturas.detener)
     await hass.config_entries.async_forward_entry_setups(entry, PLATAFORMAS)
+    await registrar_panel(hass)
+    entry.async_on_unload(lambda: quitar_panel(hass))
     return True
 
 

@@ -7,3 +7,6 @@ htmlcov/
 
 # El plan vive en el repo de Jarvis; esta copia es solo local.
 PLAN_FACTURAS.md
+
+# HA local de prueba (docker), con sus datos y credenciales de prueba.
+dev/
