@@ -4,8 +4,8 @@ Integración personalizada para llevar los servicios que se pagan (luz, agua, in
 suscripciones...): su precio y su historial, cuándo vencen y cada cuánto, lo pagado, lo que falta y lo que
 costó de verdad cada mes.
 
-> **Estado: en desarrollo (v0.1.0).** Ya funcionan la instalación desde la interfaz, el guardado y las acciones;
-> las entidades (sensores, lista y calendario) y el panel llegan en las próximas versiones.
+> **Estado: en desarrollo (v0.2.0).** Ya funcionan la instalación desde la interfaz, las acciones y las
+> entidades (sensores, lista y calendario); el panel llega en la próxima versión.
 
 ## Qué hace
 
@@ -17,6 +17,24 @@ costó de verdad cada mes.
   contra real, subidas de precio y la previsión de los próximos 12 meses. Los totales se llevan por moneda,
   sin convertir.
 - Todo local: los datos quedan en `.storage/` del propio Home Assistant, sin internet ni servicios externos.
+
+## Entidades
+
+| Entidad | Estado | Atributos |
+|---|---|---|
+| `sensor.facturas_mes_previsto` | Total previsto del mes | Total por moneda, por categoría |
+| `sensor.facturas_mes_pagado` | Pagado en el mes | Total por moneda, cantidad de pagos |
+| `sensor.facturas_mes_falta` | Lo que falta pagar del mes | Vencido, vencidos de meses anteriores |
+| `sensor.facturas_anio_pagado` | Pagado en el año | Media mensual |
+| `sensor.facturas_proxima` | Fecha del próximo vencimiento de pago manual | Servicio, importe, días que faltan, `avisar` |
+| `todo.facturas` | Pagos pendientes del mes (y vencidos) | Marcar un ítem como hecho registra el pago |
+| `calendar.facturas` | Vencimientos, pagados y previstos | Aparece en el calendario de Home Assistant |
+
+Los sensores de importes muestran la **moneda principal** (opción de la integración: pesos → UYU, dólares →
+USD); el total de cada moneda va en los atributos `pesos` y `dolares`, sin convertir.
+
+Si ya existe otra entidad `todo.facturas` (por ejemplo una lista local), la de la integración queda como
+`todo.facturas_2` hasta que se borre la vieja y se renombre.
 
 ## Acciones
 

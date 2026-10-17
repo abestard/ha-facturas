@@ -844,28 +844,39 @@ def prevision(datos: Datos, hoy: date, meses: int = 12) -> list[dict[str, Any]]:
     return resultado
 
 
-def vencimientos(datos: Datos, hoy: date, meses: int = 12) -> list[dict[str, Any]]:
-    """Los vencimientos desde el mes de hoy (generados y previstos), para el calendario."""
+def eventos(datos: Datos, hoy: date, desde: date, hasta: date) -> list[dict[str, Any]]:
+    """Los vencimientos entre dos fechas (incluidas), para el calendario.
+
+    Los pagos ya generados salen como están (cualquier estado); los meses aún no generados,
+    desde el mes de hoy, salen como previstos con el precio vigente de cada servicio activo.
+    """
     actual = periodo_de(hoy)
-    fin = sumar_meses(actual, meses - 1)
+    inicio, fin = desde.isoformat(), hasta.isoformat()
     resultado = []
     for servicio in datos.servicios.values():
-        for periodo in periodos_entre(actual, fin):
+        for periodo in periodos_entre(periodo_de(desde), periodo_de(hasta)):
             pago = datos.pago(servicio.id, periodo)
             if pago is not None:
-                resultado.append({
-                    "servicio_id": servicio.id, "periodo": periodo, "vence": pago.vence,
-                    "importe": pago.importe, "moneda": servicio.moneda, "estado": pago.estado,
-                    "pago": servicio.pago, "previsto": False,
-                })
-            elif servicio.activo and servicio.toca(periodo):
-                resultado.append({
-                    "servicio_id": servicio.id, "periodo": periodo,
+                evento = {"vence": pago.vence, "importe": pago.importe, "estado": pago.estado, "previsto": False}
+            elif servicio.activo and servicio.toca(periodo) and periodo >= actual:
+                evento = {
                     "vence": fecha_vencimiento(periodo, servicio.dia_vence).isoformat(),
-                    "importe": servicio.precio_actual(periodo) or 0.0, "moneda": servicio.moneda,
-                    "estado": "pendiente", "pago": servicio.pago, "previsto": True,
+                    "importe": servicio.precio_actual(periodo) or 0.0, "estado": "pendiente", "previsto": True,
+                }
+            else:
+                continue
+            if inicio <= evento["vence"] <= fin:
+                resultado.append({
+                    "servicio_id": servicio.id, "nombre": servicio.nombre, "periodo": periodo,
+                    "moneda": servicio.moneda, "pago": servicio.pago, **evento,
                 })
     return sorted(resultado, key=lambda v: (v["vence"], v["servicio_id"]))
+
+
+def vencimientos(datos: Datos, hoy: date, meses: int = 12) -> list[dict[str, Any]]:
+    """Los vencimientos de los próximos ``meses`` (desde el día 1 del mes de hoy), generados y previstos."""
+    ultimo = sumar_meses(periodo_de(hoy), meses - 1)
+    return eventos(datos, hoy, hoy.replace(day=1), fecha_vencimiento(ultimo, 31))
 
 
 def proximo_vencimiento(datos: Datos, hoy: date) -> dict[str, Any] | None:

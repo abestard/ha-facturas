@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.typing import ConfigType
@@ -11,6 +12,7 @@ from .nucleo import Facturas, FacturasConfigEntry
 from .servicios import registrar_acciones
 
 CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
+PLATAFORMAS = [Platform.SENSOR, Platform.TODO, Platform.CALENDAR]
 
 
 async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
@@ -24,10 +26,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: FacturasConfigEntry) -> 
     await facturas.iniciar()
     entry.runtime_data = facturas
     entry.async_on_unload(facturas.detener)
+    await hass.config_entries.async_forward_entry_setups(entry, PLATAFORMAS)
     return True
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: FacturasConfigEntry) -> bool:
     # Los datos en .storage/facturas no se borran nunca desde acá, ni al quitar la integración:
     # si se vuelve a agregar, el historial sigue ahí.
-    return True
+    return await hass.config_entries.async_unload_platforms(entry, PLATAFORMAS)

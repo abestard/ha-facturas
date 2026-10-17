@@ -33,6 +33,25 @@
       }
     }
   },
+  "entity": {
+    "sensor": {
+      "mes_previsto": {
+        "name": "Month expected"
+      },
+      "mes_pagado": {
+        "name": "Month paid"
+      },
+      "mes_falta": {
+        "name": "Month remaining"
+      },
+      "anio_pagado": {
+        "name": "Year paid"
+      },
+      "proxima": {
+        "name": "Next due date"
+      }
+    }
+  },
   "selector": {
     "moneda": {
       "options": {

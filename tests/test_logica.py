@@ -502,6 +502,25 @@ class TestResumenes:
         seguros = [x for x in v if x["servicio_id"] == "seguro"]
         assert [(x["vence"], x["previsto"]) for x in seguros] == [("2027-03-25", True)]
 
+    def test_eventos_entre_fechas(self, casa):
+        hoy = date(2026, 10, 15)
+        e = L.eventos(casa, hoy, date(2026, 9, 1), date(2026, 11, 5))
+        assert [(x["servicio_id"], x["vence"], x["estado"], x["previsto"]) for x in e] == [
+            ("antel", "2026-09-03", "pendiente", False),
+            ("ute", "2026-09-12", "pagado", False),
+            ("netflix", "2026-09-20", "pagado", False),
+            ("seguro", "2026-09-25", "pagado", False),
+            ("antel", "2026-10-03", "pendiente", False),
+            ("ute", "2026-10-12", "pendiente", False),
+            ("netflix", "2026-10-20", "pagado", False),
+            ("antel", "2026-11-03", "pendiente", True),
+        ]
+        assert e[0]["nombre"] == "Antel"
+
+    def test_eventos_no_preve_el_pasado(self, casa):
+        # Un mes pasado sin pago generado (antes del alta) no aparece como previsto.
+        assert L.eventos(casa, HOY, date(2026, 7, 1), date(2026, 8, 31)) == []
+
     def test_descripcion_todo(self, casa):
         assert L.descripcion_todo(casa, casa.pago("ute", "2026-10")) == (
             "importe=1700; moneda=pesos; pago=manual; origen=manual")

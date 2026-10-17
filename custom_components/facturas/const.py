@@ -15,3 +15,6 @@ SENAL_ACTUALIZADO = f"{DOMAIN}_actualizado"
 CLAVE_ALMACEN = DOMAIN
 VERSION_ALMACEN = 1
 VERSION_MENOR_ALMACEN = 1
+
+# Código ISO de cada moneda (unidad de los sensores monetarios)
+CODIGO_MONEDA = {"pesos": "UYU", "dolares": "USD"}
