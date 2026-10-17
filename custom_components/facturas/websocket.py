@@ -23,6 +23,7 @@ _PERIODO = vol.All(str, vol.Match(r"^\d{4}-(0[1-9]|1[0-2])$"))
 @callback
 def registrar_comandos(hass: HomeAssistant) -> None:
     websocket_api.async_register_command(hass, ws_datos)
+    websocket_api.async_register_command(hass, ws_estadisticas)
     websocket_api.async_register_command(hass, ws_suscribir)
 
 
@@ -48,6 +49,38 @@ def datos_panel(hass: HomeAssistant, periodo: str | None) -> dict[str, Any]:
 def ws_datos(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
     try:
         connection.send_result(msg["id"], datos_panel(hass, msg.get("periodo")))
+    except Exception as err:  # noqa: BLE001 - se devuelve el mensaje al panel
+        connection.send_error(msg["id"], "error", str(err))
+
+
+def estadisticas_panel(hass: HomeAssistant, anio: int | None) -> dict[str, Any]:
+    """La pestaña de estadísticas: últimos 12 meses, el año pedido y la previsión."""
+    facturas = _facturas(hass)
+    datos, hoy = facturas.datos, facturas.hoy()
+    anios = sorted({int(p.periodo[:4]) for p in datos.pagos} | {hoy.year}, reverse=True)
+    resumen_anio = logica.resumen_anio(datos, hoy, anio)
+    for servicio_id, fila in resumen_anio["por_servicio"].items():
+        fila["categoria"] = datos.servicios[servicio_id].categoria if servicio_id in datos.servicios else "otros"
+    return {
+        "hoy": hoy.isoformat(),
+        "moneda_principal": facturas.moneda_principal,
+        "anios": anios,
+        "ultimos_meses": logica.serie_mensual(datos, hoy, 12),
+        "anio": resumen_anio,
+        "prevision": [
+            {"periodo": m["periodo"], "total": m["total"]} for m in logica.prevision(datos, hoy, 12)
+        ],
+    }
+
+
+@websocket_api.websocket_command(
+    {vol.Required("type"): f"{DOMAIN}/estadisticas", vol.Optional("anio"): vol.All(int, vol.Range(min=2000, max=2100))}
+)
+@websocket_api.require_admin
+@callback
+def ws_estadisticas(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
+    try:
+        connection.send_result(msg["id"], estadisticas_panel(hass, msg.get("anio")))
     except Exception as err:  # noqa: BLE001 - se devuelve el mensaje al panel
         connection.send_error(msg["id"], "error", str(err))
 

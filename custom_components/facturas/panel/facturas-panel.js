@@ -121,7 +121,37 @@ const ESTILOS = `
   .atajos { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
   .pie { display: flex; justify-content: flex-end; gap: 8px; padding: 12px 24px 20px; }
   .ayuda { font-size: 13px; color: var(--secondary-text-color); margin: 0; }
+  /* Estadísticas. Serie 1 (azul) = pagado, serie 2 (naranja) = previsto: paleta de referencia validada
+     (claro y oscuro) para visión normal y daltonismo. */
+  :host { --serie-pagado: #2a78d6; --serie-previsto: #eb6834; }
+  :host([oscuro]) { --serie-pagado: #3987e5; --serie-previsto: #d95926; }
+  .tarjeta .contenido { padding: 0 16px 16px; }
+  .cifras { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 16px; }
+  .cifras .tarjeta { margin: 0; padding: 12px 16px; }
+  .cifras .nota { color: var(--secondary-text-color); font-size: 12px; margin-top: 2px; }
+  .leyenda { display: flex; gap: 16px; flex-wrap: wrap; font-size: 13px; color: var(--secondary-text-color);
+    padding: 0 16px 8px; }
+  .leyenda span::before { content: ""; display: inline-block; width: 10px; height: 10px; border-radius: 2px;
+    margin-right: 6px; vertical-align: -1px; background: var(--color); }
+  svg.grafico { display: block; overflow: visible; }
+  svg.grafico text { fill: var(--secondary-text-color); font-size: 11px; }
+  svg.grafico .grilla { stroke: var(--divider-color); stroke-width: 1; }
+  svg.grafico .base { stroke: var(--secondary-text-color); stroke-width: 1; opacity: .6; }
+  svg.grafico .zona { fill: transparent; }
+  svg.grafico .zona:hover { fill: rgba(127, 127, 127, .08); }
+  .barras { display: flex; flex-direction: column; gap: 10px; }
+  .barras .fila-barra { display: grid; grid-template-columns: minmax(80px, 30%) 1fr auto; gap: 10px;
+    align-items: center; font-size: 14px; }
+  .barras .barra { height: 14px; border-radius: 0 4px 4px 0; background: var(--serie-pagado); min-width: 2px; }
+  .barras .valor { color: var(--primary-text-color); font-variant-numeric: tabular-nums; }
+  details.tabla-alt summary { cursor: pointer; color: var(--primary-color); font-size: 13px; padding: 8px 0 0; }
+  td.sube { color: var(--error-color, #db4437); }
+  td.baja { color: var(--success-color, #43a047); }
+  #tip { position: fixed; z-index: 10; pointer-events: none; padding: 8px 10px; border-radius: 8px; font-size: 13px;
+    background: var(--card-background-color, #fff); color: var(--primary-text-color); white-space: pre;
+    border: 1px solid var(--divider-color); box-shadow: 0 4px 16px rgba(0, 0, 0, .25); }
   @media (max-width: 600px) {
+    .cifras { grid-template-columns: 1fr; gap: 8px; }
     main { padding: 12px; }
     .resumen { grid-template-columns: 1fr; gap: 8px; }
     .resumen .tarjeta { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
@@ -139,6 +169,66 @@ const ICONOS = {
 };
 const icono = (nombre) => `<svg viewBox="0 0 24 24"><path d="${ICONOS[nombre]}"/></svg>`;
 
+// ------------------------------------------------------------------ gráficos (SVG hecho a mano)
+
+// Marcas del eje: "5 mil", "1,2 M" (el formato compacto del navegador mezcla "K" y "k" en español).
+const compacto = (v) => (v >= 1e6 ? `${NUMERO.format(v / 1e6)} M` : v >= 1e3 ? `${NUMERO.format(v / 1e3)} mil` : NUMERO.format(v));
+
+// Tope "redondo" del eje y sus marcas (0, paso, 2·paso…).
+function escala(maximo) {
+  if (!(maximo > 0)) return { tope: 1, marcas: [0] };
+  const bruto = maximo / 4;
+  const magnitud = 10 ** Math.floor(Math.log10(bruto));
+  const paso = [1, 2, 2.5, 5, 10].map((f) => f * magnitud).find((p) => p >= bruto);
+  const tope = Math.ceil(maximo / paso) * paso;
+  const marcas = [];
+  for (let v = 0; v <= tope + paso / 2; v += paso) marcas.push(v);
+  return { tope, marcas };
+}
+
+// Columna con el extremo de datos redondeado (4px) y la base recta.
+function columna(x, y, ancho, alto, color) {
+  if (alto <= 0) return "";
+  const r = Math.min(4, ancho / 2, alto);
+  const base = y + alto;
+  return `<path fill="${color}" d="M${x},${base} V${y + r} Q${x},${y} ${x + r},${y} H${x + ancho - r}
+    Q${x + ancho},${y} ${x + ancho},${y + r} V${base} Z"/>`;
+}
+
+// Columnas agrupadas: grupos = [{etiqueta, valores: [..], tip}], colores = una variable CSS por serie.
+function graficoColumnas({ ancho, alto = 220, grupos, colores }) {
+  const izq = 40;
+  const der = 4;
+  const arriba = 10;
+  const abajo = 24;
+  const anchoUtil = Math.max(ancho - izq - der, 10);
+  const altoUtil = alto - arriba - abajo;
+  const { tope, marcas } = escala(Math.max(0, ...grupos.flatMap((g) => g.valores)));
+  const banda = anchoUtil / grupos.length;
+  const k = colores.length;
+  const separacion = 2;
+  const barra = Math.max(2, Math.min(24, (banda * 0.7 - separacion * (k - 1)) / k));
+  const cadaCuanto = banda >= 34 ? 1 : banda >= 17 ? 2 : 3;
+  const y = (v) => arriba + altoUtil - (v / tope) * altoUtil;
+  let svg = marcas.map((v) => `
+    <line class="${v === 0 ? "base" : "grilla"}" x1="${izq}" x2="${ancho - der}" y1="${y(v)}" y2="${y(v)}"/>
+    <text x="${izq - 6}" y="${y(v) + 4}" text-anchor="end">${compacto(v)}</text>`).join("");
+  grupos.forEach((g, i) => {
+    const centro = izq + banda * i + banda / 2;
+    const inicio = centro - (barra * k + separacion * (k - 1)) / 2;
+    g.valores.forEach((v, j) => {
+      svg += columna(inicio + j * (barra + separacion), y(v), barra, y(0) - y(v), `var(${colores[j]})`);
+    });
+    if (i % cadaCuanto === 0) {
+      svg += `<text x="${centro}" y="${alto - 6}" text-anchor="middle">${esc(g.etiqueta)}</text>`;
+    }
+    // Zona de toque más grande que la marca: toda la banda.
+    svg += `<rect class="zona" x="${izq + banda * i}" y="${arriba}" width="${banda}" height="${altoUtil}"
+      data-tip="${esc(g.tip)}"/>`;
+  });
+  return `<svg class="grafico" viewBox="0 0 ${ancho} ${alto}" width="${ancho}" height="${alto}" role="img">${svg}</svg>`;
+}
+
 class FacturasPanel extends HTMLElement {
   constructor() {
     super();
@@ -148,11 +238,15 @@ class FacturasPanel extends HTMLElement {
     this._error = null;
     this._filtro = { servicio: "", anio: "" };
     this._dialogo = null;
+    this._estadisticas = null;
+    this._anio = null;
+    this._moneda = null;
   }
 
   set hass(hass) {
     const primero = !this._hass;
     this._hass = hass;
+    this.toggleAttribute("oscuro", Boolean(hass.themes?.darkMode));
     if (primero) this._iniciar();
   }
 
@@ -178,8 +272,19 @@ class FacturasPanel extends HTMLElement {
   async _iniciar() {
     if (!this.shadowRoot) {
       this.attachShadow({ mode: "open" });
-      this.shadowRoot.innerHTML = `<style>${ESTILOS}</style><div id="contenido"></div><dialog id="dialogo"></dialog>`;
+      this.shadowRoot.innerHTML = `<style>${ESTILOS}</style><div id="contenido"></div><dialog id="dialogo"></dialog>
+        <div id="tip" hidden></div>`;
       this.shadowRoot.addEventListener("click", (e) => this._click(e));
+      this.shadowRoot.addEventListener("pointermove", (e) => this._tip(e));
+      this.shadowRoot.addEventListener("pointerdown", (e) => this._tip(e));
+      this.shadowRoot.addEventListener("pointerout", (e) => {
+        if (e.target.dataset?.tip !== undefined) this.shadowRoot.getElementById("tip").hidden = true;
+      });
+      // Los gráficos se dibujan al ancho real: si cambia mucho (girar el teléfono), se redibujan.
+      new ResizeObserver(() => {
+        const ancho = this.clientWidth;
+        if (this._pestana === "estadisticas" && Math.abs(ancho - (this._anchoDibujado || 0)) > 24) this._dibujar();
+      }).observe(this);
       this.shadowRoot.addEventListener("change", (e) => this._cambio(e));
       const dialogo = this.shadowRoot.getElementById("dialogo");
       dialogo.addEventListener("submit", (e) => this._enviar(e));
@@ -221,6 +326,8 @@ class FacturasPanel extends HTMLElement {
       this._datos = await this._hass.callWS(pedido);
       this._periodo = this._datos.mes.periodo;
       this._error = null;
+      if (this._pestana === "estadisticas") await this._cargarEstadisticas(false);
+      else this._estadisticas = null; // se piden de nuevo al abrir la pestaña
     } catch (err) {
       this._error = err.message || String(err);
     } finally {
@@ -233,6 +340,32 @@ class FacturasPanel extends HTMLElement {
     }
   }
 
+  async _cargarEstadisticas(dibujar = true) {
+    try {
+      const pedido = { type: "facturas/estadisticas" };
+      if (this._anio) pedido.anio = Number(this._anio);
+      this._estadisticas = await this._hass.callWS(pedido);
+    } catch (err) {
+      this._error = err.message || String(err);
+    }
+    if (dibujar) this._dibujar();
+  }
+
+  _tip(evento) {
+    const tip = this.shadowRoot.getElementById("tip");
+    const texto = evento.target.dataset?.tip;
+    if (texto === undefined) {
+      if (evento.type === "pointerdown") tip.hidden = true;
+      return;
+    }
+    tip.textContent = texto;
+    tip.hidden = false;
+    const x = Math.min(evento.clientX + 12, window.innerWidth - tip.offsetWidth - 8);
+    const y = evento.clientY - tip.offsetHeight - 12;
+    tip.style.left = `${Math.max(8, x)}px`;
+    tip.style.top = `${y < 8 ? evento.clientY + 16 : y}px`;
+  }
+
   _mostrarError(err) {
     this._error = err?.message || String(err);
     this._dibujar();
@@ -243,7 +376,8 @@ class FacturasPanel extends HTMLElement {
   _dibujar() {
     const contenido = this.shadowRoot?.getElementById("contenido");
     if (!contenido) return;
-    const pestanas = [["mes", "Este mes"], ["servicios", "Servicios"], ["historial", "Historial"]];
+    const pestanas = [["mes", "Este mes"], ["servicios", "Servicios"], ["estadisticas", "Estadísticas"],
+      ["historial", "Historial"]];
     let cuerpo;
     if (!this._datos) {
       cuerpo = this._error ? "" : `<div class="vacio">Cargando…</div>`;
@@ -251,6 +385,8 @@ class FacturasPanel extends HTMLElement {
       cuerpo = this._dibujarServicios();
     } else if (this._pestana === "historial") {
       cuerpo = this._dibujarHistorial();
+    } else if (this._pestana === "estadisticas") {
+      cuerpo = this._dibujarEstadisticas();
     } else {
       cuerpo = this._dibujarMes();
     }
@@ -389,6 +525,118 @@ class FacturasPanel extends HTMLElement {
       </div>`;
   }
 
+  _dibujarEstadisticas() {
+    const e = this._estadisticas;
+    if (!e) return `<div class="vacio">Cargando…</div>`;
+    const anio = e.anio;
+    // Las monedas que aparecen en algún lado; la principal primero.
+    const usadas = Object.keys(MONEDAS).filter((m) => m === e.moneda_principal
+      || e.ultimos_meses.some((x) => x.previsto[m] || x.pagado[m]) || e.prevision.some((x) => x.total[m])
+      || anio.pagado[m]).sort((a, b) => (b === e.moneda_principal) - (a === e.moneda_principal));
+    const moneda = usadas.includes(this._moneda) ? this._moneda : e.moneda_principal;
+    const plata = (v) => dinero(v, moneda);
+    // Ancho útil: el del panel menos los márgenes de la página y de la tarjeta.
+    const anchoPanel = this.clientWidth || 640;
+    const ancho = Math.min(anchoPanel - (anchoPanel <= 600 ? 24 : 32), 1000 - 32) - 32;
+    this._anchoDibujado = anchoPanel;
+    const etiquetaMes = (periodo) => MESES_CORTOS[Number(periodo.slice(5)) - 1];
+
+    const ultimos = graficoColumnas({
+      ancho,
+      colores: ["--serie-previsto", "--serie-pagado"],
+      grupos: e.ultimos_meses.map((m) => ({
+        etiqueta: etiquetaMes(m.periodo),
+        valores: [m.previsto[moneda], m.pagado[moneda]],
+        tip: `${nombreMes(m.periodo)}\nPrevisto: ${plata(m.previsto[moneda])}\nPagado: ${plata(m.pagado[moneda])}`,
+      })),
+    });
+    const prevision = graficoColumnas({
+      ancho,
+      alto: 180,
+      colores: ["--serie-previsto"],
+      grupos: e.prevision.map((m) => ({
+        etiqueta: etiquetaMes(m.periodo),
+        valores: [m.total[moneda]],
+        tip: `${nombreMes(m.periodo)}\nPrevisto: ${plata(m.total[moneda])}`,
+      })),
+    });
+    const totalPrevision = e.prevision.reduce((suma, m) => suma + m.total[moneda], 0);
+
+    const categorias = Object.entries(anio.por_categoria)
+      .map(([nombre, t]) => [nombre, t[moneda]]).filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]);
+    const maxCategoria = Math.max(1, ...categorias.map(([, v]) => v));
+    const servicios = Object.values(anio.por_servicio).filter((s) => s.moneda === moneda)
+      .sort((a, b) => b.total - a.total);
+    const ahorro = anio.ahorro[moneda];
+    const opcion = (valor, texto, actual) =>
+      `<option value="${esc(valor)}" ${String(valor) === String(actual) ? "selected" : ""}>${esc(texto)}</option>`;
+    const signo = (v) => (v > 0 ? "+" : "") + NUMERO.format(v);
+
+    return `
+      <div class="filtros" style="padding: 0 0 12px">
+        <select data-estadistica="anio" aria-label="Año">
+          ${e.anios.map((a) => opcion(a, a, anio.anio)).join("")}</select>
+        ${usadas.length > 1 ? `<select data-estadistica="moneda" aria-label="Moneda">
+          ${usadas.map((m) => opcion(m, m === "pesos" ? "Pesos" : "Dólares", moneda)).join("")}</select>` : ""}
+      </div>
+      <div class="cifras">
+        <div class="tarjeta"><div class="etiqueta">Pagado en ${anio.anio}</div>
+          <div class="total">${plata(anio.pagado[moneda])}</div></div>
+        <div class="tarjeta"><div class="etiqueta">Media mensual</div>
+          <div class="total">${plata(anio.media_mensual[moneda])}</div>
+          <div class="nota">${anio.meses_transcurridos} ${anio.meses_transcurridos === 1 ? "mes" : "meses"}</div></div>
+        <div class="tarjeta"><div class="etiqueta">${ahorro >= 0 ? "Ahorrado" : "Gastado de más"} contra lo estimado</div>
+          <div class="total">${plata(Math.abs(ahorro))}</div>
+          <div class="nota">en los pagos registrados del año</div></div>
+      </div>
+      <div class="tarjeta">
+        <h2>Últimos 12 meses</h2>
+        <div class="leyenda"><span style="--color: var(--serie-previsto)">Previsto</span>
+          <span style="--color: var(--serie-pagado)">Pagado</span></div>
+        <div class="contenido">${ultimos}
+          <details class="tabla-alt"><summary>Ver como tabla</summary><div class="tabla"><table>
+            <thead><tr><th>Mes</th><th class="num">Previsto</th><th class="num">Pagado</th></tr></thead>
+            <tbody>${e.ultimos_meses.map((m) => `<tr><td>${nombreMes(m.periodo)}</td>
+              <td class="num">${plata(m.previsto[moneda])}</td><td class="num">${plata(m.pagado[moneda])}</td></tr>`).join("")}
+            </tbody></table></div></details>
+        </div>
+      </div>
+      <div class="tarjeta">
+        <h2>Por categoría (${anio.anio})</h2>
+        <div class="contenido">${categorias.length ? `<div class="barras">${categorias.map(([nombre, v]) => `
+          <div class="fila-barra"><span>${esc(nombre)}</span>
+            <div><div class="barra" style="width: ${(v / maxCategoria) * 100}%"
+              data-tip="${esc(`${nombre}: ${plata(v)}`)}"></div></div>
+            <span class="valor">${plata(v)}</span></div>`).join("")}</div>`
+          : `<div class="vacio">No hay pagos registrados en ${anio.anio}.</div>`}
+        </div>
+      </div>
+      <div class="tarjeta">
+        <h2>Por servicio (${anio.anio})</h2>
+        ${servicios.length ? `<div class="tabla"><table>
+          <thead><tr><th>Servicio</th><th class="num">Total</th><th class="num">Media</th><th class="num">Mínimo</th>
+            <th class="num">Máximo</th><th class="num">Contra estimado</th><th class="num">Precio en el año</th></tr></thead>
+          <tbody>${servicios.map((s) => {
+            const subida = s.subida_precio?.porcentaje;
+            return `<tr><td>${esc(s.nombre)}</td><td class="num">${plata(s.total)}</td>
+              <td class="num">${plata(s.media)}</td><td class="num">${plata(s.minimo)}</td>
+              <td class="num">${plata(s.maximo)}</td>
+              <td class="num ${s.diferencia_estimado > 0 ? "baja" : s.diferencia_estimado < 0 ? "sube" : ""}">${
+                s.diferencia_estimado ? signo(-s.diferencia_estimado) : "="}</td>
+              <td class="num ${subida > 0 ? "sube" : subida < 0 ? "baja" : ""}">${
+                subida ? `${signo(subida)} %` : "="}</td></tr>`;
+          }).join("")}</tbody></table></div>
+          <p class="ayuda" style="padding: 8px 16px 16px">“Contra estimado”: lo pagado menos lo estimado (negativo:
+            se pagó menos). “Precio en el año”: cuánto subió el precio configurado entre enero y diciembre.</p>`
+          : `<div class="vacio">No hay pagos registrados en ${anio.anio}.</div>`}
+      </div>
+      <div class="tarjeta">
+        <h2>Próximos 12 meses</h2>
+        <div class="leyenda">Previsto en total: ${plata(totalPrevision)}</div>
+        <div class="contenido">${prevision}</div>
+      </div>`;
+  }
+
   _historialFiltrado() {
     const { servicio, anio } = this._filtro;
     return this._datos.historial.filter((p) =>
@@ -439,6 +687,7 @@ class FacturasPanel extends HTMLElement {
     if (objetivo.dataset.pestana) {
       this._pestana = objetivo.dataset.pestana;
       this._dibujar();
+      if (this._pestana === "estadisticas" && !this._estadisticas) this._cargarEstadisticas();
       return;
     }
     const { accion, servicio, periodo } = objetivo.dataset;
@@ -470,6 +719,17 @@ class FacturasPanel extends HTMLElement {
   }
 
   _cambio(evento) {
+    const opcion = evento.target.dataset?.estadistica;
+    if (opcion === "anio") {
+      this._anio = evento.target.value;
+      this._cargarEstadisticas();
+      return;
+    }
+    if (opcion === "moneda") {
+      this._moneda = evento.target.value;
+      this._dibujar();
+      return;
+    }
     const filtro = evento.target.dataset?.filtro;
     if (filtro) {
       this._filtro[filtro] = evento.target.value;

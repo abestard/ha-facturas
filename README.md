@@ -4,8 +4,8 @@ Integración personalizada para llevar los servicios que se pagan (luz, agua, in
 suscripciones...): su precio y su historial, cuándo vencen y cada cuánto, lo pagado, lo que falta y lo que
 costó de verdad cada mes.
 
-> **Estado: en desarrollo (v0.3.0).** Ya funcionan la instalación desde la interfaz, las acciones, las
-> entidades (sensores, lista y calendario) y el panel; la pestaña de estadísticas llega en la próxima versión.
+> **Estado: v0.4.0.** Instalación desde la interfaz, acciones, entidades (sensores, lista y calendario) y el
+> panel con estadísticas. Falta la conexión con el asistente Alex y las automatizaciones de la casa.
 
 ## Qué hace
 
@@ -27,6 +27,10 @@ En la barra lateral aparece **Facturas** (solo para administradores; también en
   y *Omitir*. Las flechas cambian de mes.
 - **Servicios**: alta y edición (la periodicidad con casillas de meses y atajos), *Cambió el precio* desde un
   mes, dar de baja y reactivar.
+- **Estadísticas**: pagado en el año, media mensual y lo ahorrado (o gastado de más) contra lo estimado;
+  barras de los últimos 12 meses (previsto contra pagado), por categoría, una tabla por servicio (media,
+  mínimo, máximo, diferencia con lo estimado y cuánto subió el precio en el año) y la previsión de los
+  próximos 12 meses. Por año y por moneda; cada gráfico tiene su tooltip y una vista en tabla.
 - **Historial**: todos los pagos, filtrables por servicio y año, y *Exportar CSV* (separado por punto y
   coma, como lo abre una planilla en español).
 
@@ -45,7 +49,8 @@ Assistant (claro u oscuro).
 | `todo.facturas` | Pagos pendientes del mes (y vencidos) | Marcar un ítem como hecho registra el pago |
 | `calendar.facturas` | Vencimientos, pagados y previstos | Aparece en el calendario de Home Assistant |
 
-Los sensores de importes muestran la **moneda principal** (opción de la integración: pesos → UYU, dólares →
+Los sensores de importes entran en la historia larga del registro de Home Assistant (estadísticas), así
+que se pueden graficar por años. Muestran la **moneda principal** (opción de la integración: pesos → UYU, dólares →
 USD); el total de cada moneda va en los atributos `pesos` y `dolares`, sin convertir.
 
 Si ya existe otra entidad `todo.facturas` (por ejemplo una lista local), la de la integración queda como

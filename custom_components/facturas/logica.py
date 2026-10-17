@@ -817,6 +817,27 @@ def estadisticas_servicio(datos: Datos, servicio_id: str) -> dict[str, Any]:
     }
 
 
+def serie_mensual(datos: Datos, hoy: date, meses: int = 12) -> list[dict[str, Any]]:
+    """Los últimos ``meses`` (terminando en el mes de hoy): previsto contra pagado, por moneda.
+
+    - previsto: los estimados de los pagos no omitidos (lo que se esperaba pagar).
+    - pagado: los reales de los pagos registrados.
+    """
+    actual = periodo_de(hoy)
+    resultado = []
+    for periodo in periodos_entre(sumar_meses(actual, -(meses - 1)), actual):
+        previsto, pagado = _por_moneda(), _por_moneda()
+        for pago in datos.pagos:
+            if pago.periodo != periodo or pago.estado == "omitido":
+                continue
+            moneda = datos.moneda_de(pago)
+            _sumar(previsto, moneda, pago.estimado)
+            if pago.estado == "pagado":
+                _sumar(pagado, moneda, pago.importe)
+        resultado.append({"periodo": periodo, "previsto": previsto, "pagado": pagado})
+    return resultado
+
+
 def prevision(datos: Datos, hoy: date, meses: int = 12) -> list[dict[str, Any]]:
     """Lo previsto para los próximos ``meses`` (empezando por el de hoy), por moneda.
 

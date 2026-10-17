@@ -473,6 +473,20 @@ class TestResumenes:
         sin = L.estadisticas_servicio(casa, "antel")
         assert (sin["cantidad"], sin["media"], sin["minimo"]) == (0, None, None)
 
+    def test_serie_mensual(self, casa):
+        L.omitir(casa, "antel", "2026-09")
+        serie = L.serie_mensual(casa, HOY, 3)
+        assert [m["periodo"] for m in serie] == ["2026-08", "2026-09", "2026-10"]
+        assert serie[0] == {"periodo": "2026-08", "previsto": {"pesos": 0, "dolares": 0},
+                            "pagado": {"pesos": 0, "dolares": 0}}
+        # Septiembre: Antel omitido no cuenta; UTE se estimó 1500 y se pagó 1400.
+        assert serie[1]["previsto"] == {"pesos": 1500 + 9000, "dolares": 12}
+        assert serie[1]["pagado"] == {"pesos": 1400 + 9000, "dolares": 12}
+        # Octubre: el real anotado de UTE (sin pagar) no cambia el previsto.
+        assert serie[2]["previsto"] == {"pesos": 1500 + 1890, "dolares": 12}
+        assert serie[2]["pagado"] == {"pesos": 0, "dolares": 12}
+        assert len(L.serie_mensual(casa, HOY)) == 12
+
     def test_prevision_12_meses(self, casa):
         L.cambiar_precio(casa, "ute", 1600, "2027-01")
         L.omitir(casa, "netflix", "2026-11")
