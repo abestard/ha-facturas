@@ -11,6 +11,7 @@ import voluptuous as vol
 from homeassistant.core import HomeAssistant, ServiceCall, ServiceResponse, SupportsResponse
 from homeassistant.exceptions import ServiceValidationError
 from homeassistant.helpers import config_validation as cv
+from homeassistant.helpers.service import async_register_admin_service
 
 from . import logica
 from .const import DOMAIN
@@ -35,6 +36,11 @@ FECHA = "fecha"
 NOTA = "nota"
 ORIGEN = "origen"
 ANIO = "anio"
+HASTA = "hasta"
+AUTO_PAGAR = "auto_pagar"
+ANTERIORES_PAGADOS = "anteriores_pagados"
+DATOS = "datos"
+MODO = "modo"
 
 _IMPORTE = vol.All(vol.Coerce(float), vol.Range(min=0))
 _MESES = vol.All(cv.ensure_list, [vol.All(vol.Coerce(int), vol.Range(min=1, max=12))], vol.Length(min=1))
@@ -50,12 +56,13 @@ _CAMPOS_SERVICIO = {
     vol.Optional(MESES): _MESES,
     vol.Optional(REMITENTE): vol.Any(None, cv.string),
     vol.Optional(NOTAS): cv.string,
+    vol.Optional(AUTO_PAGAR): cv.boolean,
 }
 
 ESQUEMAS: dict[str, vol.Schema] = {
     "agregar_servicio": vol.Schema(
         {vol.Required(NOMBRE): cv.string, vol.Required(IMPORTE): _IMPORTE, vol.Optional(DESDE): _PERIODO,
-         **_CAMPOS_SERVICIO}
+         vol.Optional(ANTERIORES_PAGADOS): cv.boolean, **_CAMPOS_SERVICIO}
     ),
     "editar_servicio": vol.Schema(
         {vol.Required(SERVICIO): cv.string, vol.Optional(NOMBRE): cv.string, **_CAMPOS_SERVICIO}
@@ -70,7 +77,8 @@ ESQUEMAS: dict[str, vol.Schema] = {
          vol.Optional(NOTA): cv.string, vol.Optional(ORIGEN): vol.In(logica.ORIGENES)}
     ),
     "registrar_pago": vol.Schema(
-        {vol.Required(SERVICIO): cv.string, vol.Optional(PERIODO): _PERIODO, vol.Optional(IMPORTE): _IMPORTE,
+        {vol.Required(SERVICIO): cv.string, vol.Optional(PERIODO): _PERIODO, vol.Optional(HASTA): _PERIODO,
+         vol.Optional(IMPORTE): _IMPORTE,
          vol.Optional(FECHA): cv.date, vol.Optional(NOTA): cv.string, vol.Optional(ORIGEN): vol.In(logica.ORIGENES)}
     ),
     "corregir_pago": vol.Schema(
@@ -85,7 +93,15 @@ ESQUEMAS: dict[str, vol.Schema] = {
         {vol.Optional(PERIODO): _PERIODO, vol.Optional(ANIO): vol.All(vol.Coerce(int), vol.Range(min=2000, max=2100)),
          vol.Optional(SERVICIO): cv.string}
     ),
+    # Solo administradores
+    "borrar_servicio": vol.Schema({vol.Required(SERVICIO): cv.string}),
+    "borrar_precio": vol.Schema({vol.Required(SERVICIO): cv.string, vol.Required(DESDE): _PERIODO}),
+    "exportar": vol.Schema({}),
+    "importar": vol.Schema({vol.Required(DATOS): dict, vol.Optional(MODO, default="combinar"): vol.In(logica.MODOS_IMPORTAR)}),
 }
+
+SOLO_ADMIN = {"borrar_servicio", "borrar_precio", "exportar", "importar"}
+SOLO_RESPUESTA = {"resumen", "exportar"}
 
 
 # ---------------------------------------------------------------------------
@@ -156,13 +172,35 @@ async def _agregar_servicio(f: Facturas, d: dict[str, Any]) -> dict[str, Any]:
     servicio = await f.cambiar(
         logica.agregar_servicio, f.hoy(), nombre=d[NOMBRE], importe=d[IMPORTE], desde=d.get(DESDE), **campos
     )
+    await f.generar()  # un débito automático ya vencido se paga en el momento
     return {"servicio": servicio_a_dict(servicio, f.hoy())}
 
 
 async def _editar_servicio(f: Facturas, d: dict[str, Any]) -> dict[str, Any]:
     cambios = {k: v for k, v in d.items() if k != SERVICIO}
     servicio = await f.cambiar(logica.editar_servicio, f.hoy(), _servicio_id(f, d[SERVICIO]), **cambios)
+    await f.generar()
     return {"servicio": servicio_a_dict(servicio, f.hoy())}
+
+
+async def _borrar_servicio(f: Facturas, d: dict[str, Any]) -> dict[str, Any]:
+    servicio = await f.cambiar(logica.borrar_servicio, _servicio_id(f, d[SERVICIO]))
+    return {"borrado": servicio.id}
+
+
+async def _borrar_precio(f: Facturas, d: dict[str, Any]) -> dict[str, Any]:
+    actualizados = await f.cambiar(logica.borrar_precio, _servicio_id(f, d[SERVICIO]), d[DESDE])
+    return {"actualizados": [pago_a_dict(f.datos, p) for p in actualizados]}
+
+
+async def _exportar(f: Facturas, d: dict[str, Any]) -> dict[str, Any]:
+    return logica.exportar(f.datos, f.hoy())
+
+
+async def _importar(f: Facturas, d: dict[str, Any]) -> dict[str, Any]:
+    cantidades = await f.cambiar(logica.importar, d[DATOS], d[MODO])
+    await f.generar()  # completa los meses que falten hasta hoy
+    return cantidades
 
 
 async def _dar_de_baja(f: Facturas, d: dict[str, Any]) -> dict[str, Any]:
@@ -190,6 +228,14 @@ async def _anotar_importe(f: Facturas, d: dict[str, Any]) -> dict[str, Any]:
 
 
 async def _registrar_pago(f: Facturas, d: dict[str, Any]) -> dict[str, Any]:
+    if HASTA in d:
+        if PERIODO in d:
+            raise ErrorFacturas("Usá período (un mes) o hasta (varios meses), no los dos")
+        pagos = await f.cambiar(
+            logica.registrar_pagos_hasta, f.hoy(), _servicio_id(f, d[SERVICIO]), d[HASTA],
+            real=d.get(IMPORTE), fecha=d.get(FECHA), nota=d.get(NOTA), origen=d.get(ORIGEN, "manual"),
+        )
+        return {"pagos": [pago_a_dict(f.datos, p) for p in pagos]}
     pago = await f.cambiar(
         logica.registrar_pago, f.hoy(), _servicio_id(f, d[SERVICIO]),
         periodo=d.get(PERIODO), real=d.get(IMPORTE), fecha=d.get(FECHA), nota=d.get(NOTA),
@@ -233,6 +279,10 @@ MANEJADORES: dict[str, Callable[[Facturas, dict[str, Any]], Awaitable[dict[str, 
     "deshacer_pago": _deshacer_pago,
     "omitir": _omitir,
     "resumen": _resumen,
+    "borrar_servicio": _borrar_servicio,
+    "borrar_precio": _borrar_precio,
+    "exportar": _exportar,
+    "importar": _importar,
 }
 
 
@@ -251,10 +301,12 @@ def registrar_acciones(hass: HomeAssistant) -> None:
         return accion
 
     for nombre, manejador in MANEJADORES.items():
-        hass.services.async_register(
-            DOMAIN,
-            nombre,
-            envolver(manejador),
-            schema=ESQUEMAS[nombre],
-            supports_response=SupportsResponse.ONLY if nombre == "resumen" else SupportsResponse.OPTIONAL,
-        )
+        respuesta = SupportsResponse.ONLY if nombre in SOLO_RESPUESTA else SupportsResponse.OPTIONAL
+        if nombre in SOLO_ADMIN:
+            async_register_admin_service(
+                hass, DOMAIN, nombre, envolver(manejador), schema=ESQUEMAS[nombre], supports_response=respuesta
+            )
+        else:
+            hass.services.async_register(
+                DOMAIN, nombre, envolver(manejador), schema=ESQUEMAS[nombre], supports_response=respuesta
+            )

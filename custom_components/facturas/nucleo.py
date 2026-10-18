@@ -80,10 +80,11 @@ class Facturas:
         async_dispatcher_send(self.hass, SENAL_ACTUALIZADO)
 
     async def generar(self) -> list[logica.Pago]:
-        nuevos = await self.cambiar(logica.generar_pagos, self.hoy(), guardar_si=bool)
-        if nuevos:
-            _LOGGER.debug("Pagos generados: %s", [(p.servicio_id, p.periodo) for p in nuevos])
-        return nuevos
+        """Genera los pagos que falten y paga los débitos automáticos vencidos."""
+        cambiados = await self.cambiar(logica.mantenimiento, self.hoy(), guardar_si=bool)
+        if cambiados:
+            _LOGGER.debug("Pagos generados o pagados: %s", [(p.servicio_id, p.periodo, p.estado) for p in cambiados])
+        return cambiados
 
     # -- cambios ----------------------------------------------------------
 

@@ -49,6 +49,30 @@
       },
       "proxima": {
         "name": "Próximo vencimiento"
+      },
+      "mes_previsto_pesos": {
+        "name": "Mes previsto (pesos)"
+      },
+      "mes_pagado_pesos": {
+        "name": "Mes pagado (pesos)"
+      },
+      "mes_falta_pesos": {
+        "name": "Mes falta (pesos)"
+      },
+      "anio_pagado_pesos": {
+        "name": "Año pagado (pesos)"
+      },
+      "mes_previsto_dolares": {
+        "name": "Mes previsto (dólares)"
+      },
+      "mes_pagado_dolares": {
+        "name": "Mes pagado (dólares)"
+      },
+      "mes_falta_dolares": {
+        "name": "Mes falta (dólares)"
+      },
+      "anio_pagado_dolares": {
+        "name": "Año pagado (dólares)"
       }
     }
   },
@@ -75,13 +99,20 @@
       "options": {
         "manual": "Manual",
         "correo": "Correo",
-        "alex": "Alex"
+        "alex": "Alex",
+        "automatico": "Automático"
       }
     },
     "moneda_principal": {
       "options": {
         "pesos": "Pesos",
         "dolares": "Dólares"
+      }
+    },
+    "modo": {
+      "options": {
+        "combinar": "Combinar",
+        "reemplazar": "Reemplazar"
       }
     },
     "meses": {
@@ -149,6 +180,14 @@
         "notas": {
           "name": "Notas",
           "description": "Notas libres."
+        },
+        "auto_pagar": {
+          "name": "Pagar solo",
+          "description": "Solo débito automático: el día del vencimiento el pago se marca como pagado."
+        },
+        "anteriores_pagados": {
+          "name": "Meses anteriores pagados",
+          "description": "Los pagos de los meses anteriores al actual quedan como pagados."
         }
       }
     },
@@ -195,6 +234,10 @@
         "notas": {
           "name": "Notas",
           "description": "Notas libres."
+        },
+        "auto_pagar": {
+          "name": "Pagar solo",
+          "description": "Solo débito automático: el día del vencimiento el pago se marca como pagado."
         }
       }
     },
@@ -264,7 +307,7 @@
     },
     "registrar_pago": {
       "name": "Registrar pago",
-      "description": "Marca un pago como hecho. También sirve para pagar por adelantado.",
+      "description": "Marca un pago como hecho (o varios, con Hasta). También sirve para pagar por adelantado.",
       "fields": {
         "servicio": {
           "name": "Servicio",
@@ -274,9 +317,13 @@
           "name": "Período",
           "description": "Mes (AAAA-MM). Por defecto, el pendiente más viejo."
         },
+        "hasta": {
+          "name": "Hasta",
+          "description": "Paga todos los meses pendientes hasta este (AAAA-MM), incluso meses futuros."
+        },
         "importe": {
           "name": "Importe",
-          "description": "Importe real pagado. Por defecto, el anotado o el estimado."
+          "description": "Importe real pagado (por mes). Por defecto, el anotado o el estimado."
         },
         "fecha": {
           "name": "Fecha",
@@ -365,6 +412,49 @@
         "servicio": {
           "name": "Servicio",
           "description": "Además devuelve las estadísticas de este servicio."
+        }
+      }
+    },
+    "borrar_servicio": {
+      "name": "Borrar servicio",
+      "description": "Borra el servicio y todos sus pagos para siempre (solo administradores). Para dejar de pagarlo está Dar de baja.",
+      "fields": {
+        "servicio": {
+          "name": "Servicio",
+          "description": "Id o nombre del servicio."
+        }
+      }
+    },
+    "borrar_precio": {
+      "name": "Quitar precio",
+      "description": "Quita un precio mal cargado del historial (solo administradores).",
+      "fields": {
+        "servicio": {
+          "name": "Servicio",
+          "description": "Id o nombre del servicio."
+        },
+        "desde": {
+          "name": "Desde",
+          "description": "Mes desde el que rige ese precio (AAAA-MM)."
+        }
+      }
+    },
+    "exportar": {
+      "name": "Exportar",
+      "description": "Devuelve todos los datos en JSON, para guardar una copia (solo administradores).",
+      "fields": {}
+    },
+    "importar": {
+      "name": "Importar",
+      "description": "Carga una copia exportada (solo administradores).",
+      "fields": {
+        "datos": {
+          "name": "Datos",
+          "description": "La copia exportada (el JSON de Exportar)."
+        },
+        "modo": {
+          "name": "Modo",
+          "description": "Combinar agrega solo los servicios nuevos; reemplazar sustituye todo."
         }
       }
     }

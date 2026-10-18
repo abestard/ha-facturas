@@ -74,6 +74,14 @@ agregar_servicio:
       selector:
         text:
           multiline: true
+    auto_pagar:
+      default: false
+      selector:
+        boolean:
+    anteriores_pagados:
+      default: false
+      selector:
+        boolean:
 
 editar_servicio:
   fields:
@@ -122,6 +130,9 @@ editar_servicio:
       selector:
         text:
           multiline: true
+    auto_pagar:
+      selector:
+        boolean:
 
 dar_de_baja:
   fields:
@@ -169,6 +180,10 @@ registrar_pago:
   fields:
     servicio: *servicio
     periodo: *periodo
+    hasta:
+      example: "2026-12"
+      selector:
+        text:
     importe:
       example: 1490
       selector:
@@ -230,3 +245,31 @@ resumen:
       example: "UTE"
       selector:
         text:
+
+borrar_servicio:
+  fields:
+    servicio: *servicio
+
+borrar_precio:
+  fields:
+    servicio: *servicio
+    desde:
+      required: true
+      example: "2026-09"
+      selector:
+        text:
+
+exportar:
+
+importar:
+  fields:
+    datos:
+      required: true
+      selector:
+        object:
+    modo:
+      default: combinar
+      selector:
+        select:
+          options: [combinar, reemplazar]
+          translation_key: modo

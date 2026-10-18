@@ -49,6 +49,30 @@
       },
       "proxima": {
         "name": "Next due date"
+      },
+      "mes_previsto_pesos": {
+        "name": "Month expected (pesos)"
+      },
+      "mes_pagado_pesos": {
+        "name": "Month paid (pesos)"
+      },
+      "mes_falta_pesos": {
+        "name": "Month remaining (pesos)"
+      },
+      "anio_pagado_pesos": {
+        "name": "Year paid (pesos)"
+      },
+      "mes_previsto_dolares": {
+        "name": "Month expected (dollars)"
+      },
+      "mes_pagado_dolares": {
+        "name": "Month paid (dollars)"
+      },
+      "mes_falta_dolares": {
+        "name": "Month remaining (dollars)"
+      },
+      "anio_pagado_dolares": {
+        "name": "Year paid (dollars)"
       }
     }
   },
@@ -75,13 +99,20 @@
       "options": {
         "manual": "Manual",
         "correo": "Email",
-        "alex": "Alex"
+        "alex": "Alex",
+        "automatico": "Automatic"
       }
     },
     "moneda_principal": {
       "options": {
         "pesos": "Pesos",
         "dolares": "Dollars"
+      }
+    },
+    "modo": {
+      "options": {
+        "combinar": "Merge",
+        "reemplazar": "Replace"
       }
     },
     "meses": {
@@ -149,6 +180,14 @@
         "notas": {
           "name": "Notes",
           "description": "Free notes."
+        },
+        "auto_pagar": {
+          "name": "Pay automatically",
+          "description": "Automatic debit only: on the due date the payment is marked as paid."
+        },
+        "anteriores_pagados": {
+          "name": "Previous months paid",
+          "description": "Payments of months before the current one are marked as paid."
         }
       }
     },
@@ -195,6 +234,10 @@
         "notas": {
           "name": "Notes",
           "description": "Free notes."
+        },
+        "auto_pagar": {
+          "name": "Pay automatically",
+          "description": "Automatic debit only: on the due date the payment is marked as paid."
         }
       }
     },
@@ -264,7 +307,7 @@
     },
     "registrar_pago": {
       "name": "Register payment",
-      "description": "Marks a payment as done. Also for paying in advance.",
+      "description": "Marks a payment as done (or several, with Until). Also for paying in advance.",
       "fields": {
         "servicio": {
           "name": "Service",
@@ -274,9 +317,13 @@
           "name": "Period",
           "description": "Month (YYYY-MM). Defaults to the oldest pending one."
         },
+        "hasta": {
+          "name": "Until",
+          "description": "Pay every pending month up to this one (YYYY-MM), including future months."
+        },
         "importe": {
           "name": "Amount",
-          "description": "Real amount paid. Defaults to the recorded or estimated amount."
+          "description": "Real amount paid (per month). Defaults to the recorded or estimated amount."
         },
         "fecha": {
           "name": "Date",
@@ -365,6 +412,49 @@
         "servicio": {
           "name": "Service",
           "description": "Also returns the statistics of this service."
+        }
+      }
+    },
+    "borrar_servicio": {
+      "name": "Delete service",
+      "description": "Deletes the service and all its payments forever (admins only). To stop paying it, use Deactivate.",
+      "fields": {
+        "servicio": {
+          "name": "Service",
+          "description": "Id or name of the service."
+        }
+      }
+    },
+    "borrar_precio": {
+      "name": "Delete price",
+      "description": "Removes a wrongly entered price from the history (admins only).",
+      "fields": {
+        "servicio": {
+          "name": "Service",
+          "description": "Id or name of the service."
+        },
+        "desde": {
+          "name": "From",
+          "description": "Month the price starts (YYYY-MM)."
+        }
+      }
+    },
+    "exportar": {
+      "name": "Export",
+      "description": "Returns all the data as JSON, to keep a copy (admins only).",
+      "fields": {}
+    },
+    "importar": {
+      "name": "Import",
+      "description": "Loads an exported copy (admins only).",
+      "fields": {
+        "datos": {
+          "name": "Data",
+          "description": "The exported copy (the JSON of Export)."
+        },
+        "modo": {
+          "name": "Mode",
+          "description": "Merge adds only new services; replace swaps everything."
         }
       }
     }

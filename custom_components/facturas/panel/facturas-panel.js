@@ -36,6 +36,49 @@ const totales = (porMoneda, principal) => {
     .map((m) => `<div class="total">${dinero(porMoneda[m], m)}</div>`).join("");
 };
 
+// Los meses marcados después de un atajo ("mensual", "cada2", "cada3", "anual"), empezando en el
+// primer mes marcado (o en enero si no hay ninguno). marcados: 12 booleanos.
+const mesesAtajo = (marcados, atajo) => {
+  const marcado = marcados.findIndex(Boolean);
+  const primero = marcado < 0 ? 0 : marcado;
+  const paso = { mensual: 1, cada2: 2, cada3: 3, anual: 12 }[atajo];
+  return marcados.map((_, i) => (i - primero + 12) % paso === 0);
+};
+
+// Saca los campos vacíos (la acción usa sus valores por defecto); la nota vacía sí se manda, para borrarla.
+const limpiarDatos = (datos) => Object.fromEntries(Object.entries(datos)
+  .filter(([clave, valor]) => valor !== undefined && (valor !== "" || clave === "nota" || clave === "notas")));
+
+// El CSV del historial: punto y coma y coma decimal (así lo abre bien una planilla en español) y BOM
+// para los acentos.
+const csvHistorial = (pagos, categorias) => {
+  const columnas = ["periodo", "servicio", "categoria", "moneda", "vence", "estimado", "real", "estado",
+    "pagado_el", "origen", "nota"];
+  const celda = (valor) => {
+    const texto = valor === null || valor === undefined ? "" : String(valor);
+    return /[";\r\n]/.test(texto) ? `"${texto.replace(/"/g, '""')}"` : texto;
+  };
+  const numero = (valor) => (valor === null || valor === undefined ? "" : String(valor).replace(".", ","));
+  const filas = pagos.map((p) => [
+    p.periodo, p.nombre, categorias[p.servicio_id] || "", p.moneda, p.vence, numero(p.estimado), numero(p.real),
+    p.estado, p.pagado_el, p.origen, p.nota,
+  ].map(celda).join(";"));
+  return "\ufeff" + [columnas.join(";"), ...filas].join("\r\n");
+};
+
+const descargar = (nombre, contenido, tipo) => {
+  const enlace = document.createElement("a");
+  enlace.href = URL.createObjectURL(new Blob([contenido], { type: tipo }));
+  enlace.download = nombre;
+  document.body.appendChild(enlace);
+  enlace.click();
+  enlace.remove();
+  setTimeout(() => URL.revokeObjectURL(enlace.href), 1000);
+};
+
+const PESTANAS = [["mes", "Este mes"], ["servicios", "Servicios"], ["estadisticas", "Estadísticas"],
+  ["historial", "Historial"]];
+
 const ESTILOS = `
   :host { display: block; min-height: 100vh; background: var(--primary-background-color);
     color: var(--primary-text-color); font-family: var(--paper-font-body1_-_font-family, Roboto, sans-serif); }
@@ -121,6 +164,14 @@ const ESTILOS = `
   .atajos { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
   .pie { display: flex; justify-content: flex-end; gap: 8px; padding: 12px 24px 20px; }
   .ayuda { font-size: 13px; color: var(--secondary-text-color); margin: 0; }
+  .aviso { margin-bottom: 16px; padding: 12px 16px; border-radius: 8px; color: var(--success-color, #43a047);
+    background: rgba(76, 175, 80, .12); }
+  .casilla { display: flex; align-items: flex-start; gap: 8px; font-size: 14px; }
+  .casilla input { width: 18px; height: 18px; padding: 0; margin: 1px 0 0; flex: none; }
+  .precios { display: flex; flex-direction: column; gap: 4px; }
+  .precios div { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 14px; }
+  .zona-peligro { border-top: 1px solid var(--divider-color); padding-top: 12px; display: flex;
+    justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; }
   /* Estadísticas. Serie 1 (azul) = pagado, serie 2 (naranja) = previsto: paleta de referencia validada
      (claro y oscuro) para visión normal y daltonismo. */
   :host { --serie-pagado: #2a78d6; --serie-previsto: #eb6834; }
@@ -229,10 +280,14 @@ function graficoColumnas({ ancho, alto = 220, grupos, colores }) {
   return `<svg class="grafico" viewBox="0 0 ${ancho} ${alto}" width="${ancho}" height="${alto}" role="img">${svg}</svg>`;
 }
 
-class FacturasPanel extends HTMLElement {
+// En node (pruebas) no hay HTMLElement: la clase se define igual, sobre una base vacía.
+class FacturasPanel extends (globalThis.HTMLElement ?? class {}) {
   constructor() {
     super();
-    this._pestana = "mes";
+    // La pestaña se puede abrir desde la URL: /facturas#estadisticas
+    const desdeUrl = globalThis.location?.hash.slice(1);
+    this._pestana = PESTANAS.some(([clave]) => clave === desdeUrl) ? desdeUrl : "mes";
+    this._aviso = null;
     this._periodo = null;
     this._datos = null;
     this._error = null;
@@ -376,8 +431,7 @@ class FacturasPanel extends HTMLElement {
   _dibujar() {
     const contenido = this.shadowRoot?.getElementById("contenido");
     if (!contenido) return;
-    const pestanas = [["mes", "Este mes"], ["servicios", "Servicios"], ["estadisticas", "Estadísticas"],
-      ["historial", "Historial"]];
+    const pestanas = PESTANAS;
     let cuerpo;
     if (!this._datos) {
       cuerpo = this._error ? "" : `<div class="vacio">Cargando…</div>`;
@@ -400,6 +454,7 @@ class FacturasPanel extends HTMLElement {
       </nav>
       <main>
         ${this._error ? `<div class="error">${esc(this._error)}</div>` : ""}
+        ${this._aviso ? `<div class="aviso">${esc(this._aviso)}</div>` : ""}
         ${cuerpo}
       </main>`;
   }
@@ -663,6 +718,11 @@ class FacturasPanel extends HTMLElement {
           <span style="flex:1"></span>
           <button class="boton" data-accion="csv" ${filas.length ? "" : "disabled"}>Exportar CSV</button>
         </div>
+        <div class="filtros" style="padding-top: 0">
+          <span class="ayuda" style="flex: 1">Copia de seguridad completa (servicios, precios y pagos):</span>
+          <button class="boton" data-accion="exportar">Exportar copia</button>
+          <button class="boton" data-accion="importar">Importar copia</button>
+        </div>
         ${filas.length ? `
           <div class="tabla"><table>
             <thead><tr><th>Mes</th><th>Servicio</th><th>Vence</th><th class="num">Estimado</th>
@@ -686,6 +746,8 @@ class FacturasPanel extends HTMLElement {
     if (!objetivo) return;
     if (objetivo.dataset.pestana) {
       this._pestana = objetivo.dataset.pestana;
+      this._aviso = null;
+      history.replaceState(history.state, "", `#${this._pestana}`);
       this._dibujar();
       if (this._pestana === "estadisticas" && !this._estadisticas) this._cargarEstadisticas();
       return;
@@ -707,6 +769,9 @@ class FacturasPanel extends HTMLElement {
       case "csv":
         this._exportarCsv();
         break;
+      case "exportar":
+        this._exportarCopia();
+        break;
       case "cancelar":
         this.shadowRoot.getElementById("dialogo").close();
         break;
@@ -714,7 +779,7 @@ class FacturasPanel extends HTMLElement {
         this._atajoMeses(objetivo.dataset.atajo);
         break;
       default:
-        this._abrir(accion, servicio, periodo);
+        this._abrir(accion, servicio, periodo, objetivo.dataset.desde);
     }
   }
 
@@ -749,7 +814,7 @@ class FacturasPanel extends HTMLElement {
 
   // ------------------------------------------------------------ diálogos
 
-  _abrir(accion, servicioId, periodo) {
+  _abrir(accion, servicioId, periodo, desde) {
     const pago = periodo ? this._pago(servicioId, periodo) : null;
     const servicio = servicioId ? this._servicio(servicioId) : null;
     const hoy = this._datos.hoy;
@@ -767,7 +832,11 @@ class FacturasPanel extends HTMLElement {
         html = this._formulario(`Pagado: ${titulo}`, `
           ${importe(pago.importe)}
           <label class="campo"><span>Fecha de pago</span><input name="fecha" type="date" value="${hoy}" required></label>
-          ${nota(pago.nota)}`, "Registrar pago");
+          ${nota(pago.nota)}
+          <label class="campo"><span>Pagar también los meses siguientes, hasta (opcional)</span>
+            <input name="hasta" type="month" min="${pago.periodo}"></label>
+          <p class="ayuda">Con “hasta”, se registran todos los pendientes de ${esc(pago.nombre)} hasta ese mes
+            (también meses futuros), cada uno con el importe de arriba.</p>`, "Registrar pago");
         break;
       case "anotar":
         html = this._formulario(`Importe de la factura: ${titulo}`, `
@@ -813,10 +882,35 @@ class FacturasPanel extends HTMLElement {
       case "servicio-editar":
         html = this._formularioServicio(servicio);
         break;
+      case "quitar-precio": {
+        const precio = servicio.historial_precios.find((x) => x.desde === desde);
+        html = this._formulario(`Quitar precio: ${titulo}`, `
+          <p class="ayuda">Se quita el precio de ${dinero(precio.importe, servicio.moneda)} desde
+            ${nombreMes(desde)}. Los pendientes sin importe real desde ese mes vuelven al precio anterior;
+            los pagados no cambian.</p>`, "Quitar precio", true);
+        break;
+      }
+      case "borrar":
+        html = this._formulario(`Borrar: ${titulo}`, `
+          <p class="ayuda">Se borran el servicio y <strong>todos sus pagos</strong>, para siempre. Es para lo
+            cargado por error: si se dejó de pagar, mejor “Dar de baja”, que conserva el historial.</p>
+          <label class="campo"><span>Escribí el nombre para confirmar: ${esc(servicio.nombre)}</span>
+            <input name="confirmacion" autocomplete="off" required></label>`, "Borrar para siempre", true);
+        break;
+      case "importar":
+        html = this._formulario("Importar copia", `
+          <label class="campo"><span>Archivo de copia (.json)</span>
+            <input name="archivo" type="file" accept=".json,application/json" required></label>
+          <label class="campo"><span>Modo</span><select name="modo">
+            <option value="combinar">Combinar: agregar solo los servicios que no existen</option>
+            <option value="reemplazar">Reemplazar: sustituir todo por la copia</option>
+          </select></label>
+          <p class="ayuda">Antes de reemplazar conviene exportar una copia de lo actual.</p>`, "Importar");
+        break;
       default:
         return;
     }
-    this._dialogo = { accion, servicioId, periodo };
+    this._dialogo = { accion, servicioId, periodo, desde };
     const dialogo = this.shadowRoot.getElementById("dialogo");
     dialogo.innerHTML = html;
     if (!dialogo.open) dialogo.showModal();
@@ -879,18 +973,29 @@ class FacturasPanel extends HTMLElement {
             ${MESES_CORTOS[i]}</label>`).join("")}
         </div>
       </div>
+      <label class="casilla"><input type="checkbox" name="auto_pagar" ${s?.auto_pagar ? "checked" : ""}>
+        <span>Con débito automático, marcarlo como pagado solo el día del vencimiento</span></label>
+      ${nuevo ? `<label class="casilla"><input type="checkbox" name="anteriores_pagados">
+        <span>Si empieza en un mes pasado, esos meses ya están pagados</span></label>` : ""}
       <label class="campo"><span>Remitente de la factura (opcional)</span>
         <input name="remitente" type="email" value="${valor("remitente")}" placeholder="facturas@empresa.com"></label>
-      <label class="campo"><span>Notas</span><textarea name="notas" rows="2">${valor("notas")}</textarea></label>`,
+      <label class="campo"><span>Notas</span><textarea name="notas" rows="2">${valor("notas")}</textarea></label>
+      ${nuevo ? "" : `
+        <div class="campo"><span>Historial de precios</span><div class="precios">
+          ${s.historial_precios.map((x) => `<div><span>${dinero(x.importe, s.moneda)} desde ${nombreMes(x.desde)}</span>
+            ${s.historial_precios.length > 1 ? `<button type="button" class="boton peligro" data-accion="quitar-precio"
+              data-servicio="${esc(s.id)}" data-desde="${esc(x.desde)}">Quitar</button>` : ""}</div>`).join("")}
+        </div></div>
+        <div class="zona-peligro"><span class="ayuda">¿Cargado por error?</span>
+          <button type="button" class="boton peligro" data-accion="borrar" data-servicio="${esc(s.id)}">
+            Borrar servicio</button></div>`}`,
       nuevo ? "Agregar" : "Guardar");
   }
 
   _atajoMeses(atajo) {
     const casillas = [...this.shadowRoot.querySelectorAll("dialog input[name=mes]")];
-    const marcado = casillas.findIndex((c) => c.checked);
-    const primero = marcado < 0 ? 0 : marcado; // sin marcar → enero
-    const paso = { mensual: 1, cada2: 2, cada3: 3, anual: 12 }[atajo];
-    casillas.forEach((c, i) => { c.checked = (i - primero + 12) % paso === 0; });
+    const nuevos = mesesAtajo(casillas.map((c) => c.checked), atajo);
+    casillas.forEach((c, i) => { c.checked = nuevos[i]; });
   }
 
   async _enviar(evento) {
@@ -900,14 +1005,22 @@ class FacturasPanel extends HTMLElement {
     const f = new FormData(formulario);
     const texto = (campo) => (f.get(campo) ?? "").toString().trim();
     const numero = (campo) => (texto(campo) === "" ? undefined : Number(texto(campo)));
-    const { accion, servicioId, periodo } = this._dialogo;
+    const { accion, servicioId, periodo, desde } = this._dialogo;
     const base = { servicio: servicioId, periodo };
     let servicio;
     let datos;
     switch (accion) {
-      case "pagar":
-        [servicio, datos] = ["registrar_pago", { ...base, importe: numero("importe"), fecha: texto("fecha"), nota: texto("nota") }];
+      case "pagar": {
+        const hasta = texto("hasta");
+        datos = { ...base, importe: numero("importe"), fecha: texto("fecha"), nota: texto("nota") };
+        if (hasta) {
+          // Varios meses: desde el pendiente más viejo hasta "hasta" (la acción no acepta los dos).
+          delete datos.periodo;
+          datos.hasta = hasta;
+        }
+        servicio = "registrar_pago";
         break;
+      }
       case "anotar":
         [servicio, datos] = ["anotar_importe", { ...base, importe: numero("importe"), nota: texto("nota") }];
         break;
@@ -929,6 +1042,27 @@ class FacturasPanel extends HTMLElement {
       case "reactivar":
         [servicio, datos] = ["reactivar", { servicio: servicioId }];
         break;
+      case "quitar-precio":
+        [servicio, datos] = ["borrar_precio", { servicio: servicioId, desde }];
+        break;
+      case "borrar":
+        if (texto("confirmacion").toLowerCase() !== this._servicio(servicioId).nombre.toLowerCase()) {
+          this._errorDialogo("El nombre no coincide.");
+          return;
+        }
+        [servicio, datos] = ["borrar_servicio", { servicio: servicioId }];
+        break;
+      case "importar": {
+        let copia;
+        try {
+          copia = JSON.parse(await f.get("archivo").text());
+        } catch (err) {
+          this._errorDialogo("El archivo no es un JSON válido.");
+          return;
+        }
+        [servicio, datos] = ["importar", { datos: copia, modo: texto("modo") }];
+        break;
+      }
       case "servicio-nuevo":
       case "servicio-editar": {
         const meses = f.getAll("mes").map(Number);
@@ -939,11 +1073,13 @@ class FacturasPanel extends HTMLElement {
         datos = {
           nombre: texto("nombre"), categoria: texto("categoria") || "otros", moneda: texto("moneda"),
           pago: texto("pago"), tipo: texto("tipo"), dia_vence: numero("dia_vence"), meses,
-          remitente: texto("remitente") || null, notas: texto("notas"),
+          remitente: texto("remitente") || null, notas: texto("notas"), auto_pagar: f.has("auto_pagar"),
         };
         if (accion === "servicio-nuevo") {
           servicio = "agregar_servicio";
-          Object.assign(datos, { importe: numero("importe"), desde: texto("desde") });
+          Object.assign(datos, {
+            importe: numero("importe"), desde: texto("desde"), anteriores_pagados: f.has("anteriores_pagados"),
+          });
         } else {
           servicio = "editar_servicio";
           datos.servicio = servicioId;
@@ -953,15 +1089,20 @@ class FacturasPanel extends HTMLElement {
       default:
         return;
     }
-    // Sin campos vacíos (la acción usa sus valores por defecto); la nota vacía sí se manda, para borrarla.
-    for (const [clave, valor] of Object.entries(datos)) {
-      if (valor === undefined || (valor === "" && clave !== "nota" && clave !== "notas")) delete datos[clave];
-    }
+    datos = limpiarDatos(datos);
     const boton = formulario.querySelector("button[type=submit]");
     boton.disabled = true;
     try {
-      await this._hass.callService("facturas", servicio, datos);
+      // Por WebSocket con respuesta: así se puede mostrar lo que hizo (por ejemplo, cuánto se importó).
+      const { response: respuesta } = await this._hass.callWS({
+        type: "call_service", domain: "facturas", service: servicio, service_data: datos, return_response: true,
+      });
       this.shadowRoot.getElementById("dialogo").close();
+      this._aviso = servicio === "importar"
+        ? `Copia importada: ${respuesta.servicios} servicios y ${respuesta.pagos} pagos.`
+        : servicio === "registrar_pago" && respuesta?.pagos
+          ? `Se registraron ${respuesta.pagos.length} pagos.`
+          : servicio === "borrar_servicio" ? "Servicio borrado." : null;
       this._cargar();
     } catch (err) {
       this._errorDialogo(err.message || String(err));
@@ -972,36 +1113,36 @@ class FacturasPanel extends HTMLElement {
   _errorDialogo(mensaje) {
     const caja = this.shadowRoot.getElementById("error-dialogo");
     if (caja) {
-      caja.textContent = mensaje;
+      // HA antepone "Validation error: " a los errores de las acciones; el mensaje ya se explica solo.
+      caja.textContent = mensaje.replace(/^Validation error: /, "");
       caja.hidden = false;
     }
   }
 
   _exportarCsv() {
-    const columnas = ["periodo", "servicio", "categoria", "moneda", "vence", "estimado", "real", "estado",
-      "pagado_el", "origen", "nota"];
-    const categorias = Object.fromEntries(this._datos.servicios.map((s) => [s.id, s.categoria]));
-    const celda = (valor) => {
-      const texto = valor === null || valor === undefined ? "" : String(valor);
-      return /[";\n]/.test(texto) ? `"${texto.replace(/"/g, '""')}"` : texto;
-    };
-    const numero = (valor) => (valor === null || valor === undefined ? "" : String(valor).replace(".", ","));
-    const filas = this._historialFiltrado().map((p) => [
-      p.periodo, p.nombre, categorias[p.servicio_id] || "", p.moneda, p.vence, numero(p.estimado), numero(p.real),
-      p.estado, p.pagado_el, p.origen, p.nota,
-    ].map(celda).join(";"));
-    // Punto y coma y coma decimal: así lo abre bien una planilla en español. El BOM es para los acentos.
-    const csv = "﻿" + [columnas.join(";"), ...filas].join("\r\n");
-    const enlace = document.createElement("a");
-    enlace.href = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
-    enlace.download = `facturas${this._filtro.anio ? `-${this._filtro.anio}` : ""}.csv`;
-    document.body.appendChild(enlace);
-    enlace.click();
-    enlace.remove();
-    setTimeout(() => URL.revokeObjectURL(enlace.href), 1000);
+    const categorias = Object.fromEntries(this._datos.servicios.map((x) => [x.id, x.categoria]));
+    descargar(`facturas${this._filtro.anio ? `-${this._filtro.anio}` : ""}.csv`,
+      csvHistorial(this._historialFiltrado(), categorias), "text/csv;charset=utf-8");
+  }
+
+  async _exportarCopia() {
+    try {
+      const { response: copia } = await this._hass.callWS({
+        type: "call_service", domain: "facturas", service: "exportar", service_data: {}, return_response: true,
+      });
+      descargar(`facturas-copia-${copia.exportado}.json`, JSON.stringify(copia, null, 2), "application/json");
+    } catch (err) {
+      this._mostrarError(err);
+    }
   }
 }
 
-if (!customElements.get("facturas-panel")) {
+if (globalThis.customElements && !customElements.get("facturas-panel")) {
   customElements.define("facturas-panel", FacturasPanel);
 }
+
+// Para las pruebas (tests/js); Home Assistant carga el archivo como módulo y las ignora.
+export {
+  compacto, csvHistorial, dinero, escala, esc, fechaCorta, graficoColumnas, limpiarDatos, mesesAtajo, nombreMes,
+  sumarMeses,
+};

@@ -33,3 +33,14 @@ jobs:
           python-version: "3.13"
       - run: pip install -r requirements_test.txt
       - run: pytest
+
+  panel:
+    name: Pruebas del panel (JS)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: node --check custom_components/facturas/panel/facturas-panel.js
+      - run: node --test "tests/js/*.test.mjs"

@@ -1,0 +1,42 @@
+name: Release
+
+# Al subir un tag vX.Y.Z: comprueba que coincide con la versión de manifest.json, corre las
+# pruebas y publica el release en GitHub (HACS lo ve y avisa en Home Assistant).
+#   git tag v0.5.0 && git push origin v0.5.0
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: El tag coincide con manifest.json
+        run: |
+          version=$(python3 -c "import json; print(json.load(open('custom_components/facturas/manifest.json'))['version'])")
+          if [ "v$version" != "$GITHUB_REF_NAME" ]; then
+            echo "::error::El tag es $GITHUB_REF_NAME pero manifest.json dice $version"
+            exit 1
+          fi
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - run: pip install -r requirements_test.txt
+      - run: pytest
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: node --test "tests/js/*.test.mjs"
+
+      - name: Publicar el release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" --title "$GITHUB_REF_NAME" --generate-notes --verify-tag

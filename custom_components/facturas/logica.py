@@ -17,7 +17,7 @@ Convenciones:
 from __future__ import annotations
 
 import calendar
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass, field, fields
 from datetime import date
 from typing import Any, Iterable, Iterator
 
@@ -25,7 +25,9 @@ MONEDAS = ("pesos", "dolares")
 FORMAS_PAGO = ("manual", "debito")
 TIPOS = ("fijo", "consumo")
 ESTADOS = ("pendiente", "pagado", "omitido")
-ORIGENES = ("manual", "correo", "alex")
+ORIGENES = ("manual", "correo", "alex", "automatico")
+MODOS_IMPORTAR = ("reemplazar", "combinar")
+VERSION_EXPORTACION = 1
 TODOS_LOS_MESES = list(range(1, 13))
 
 
@@ -184,6 +186,8 @@ class Servicio:
     remitente: str | None = None
     activo: bool = True
     notas: str = ""
+    # Solo para débito automático: el día del vencimiento el pago se marca como pagado solo.
+    auto_pagar: bool = False
     # Primer período en que existe el servicio: antes no se generan pagos.
     alta: str = "2000-01"
     # Último período para el que ya se generaron sus pagos (uso interno).
@@ -199,6 +203,7 @@ class Servicio:
         _elegir(self.moneda, MONEDAS, "moneda")
         _elegir(self.pago, FORMAS_PAGO, "pago")
         _elegir(self.tipo, TIPOS, "tipo")
+        self.auto_pagar = bool(self.auto_pagar)
         if not isinstance(self.dia_vence, int) or not 1 <= self.dia_vence <= 31:
             raise ErrorFacturas(f"dia_vence inválido: {self.dia_vence!r} (1-31)")
         self.meses = validar_meses(self.meses)
@@ -272,15 +277,43 @@ class Datos:
 
     @classmethod
     def desde_dict(cls, datos: dict[str, Any] | None) -> Datos:
+        """Arma los datos desde el JSON guardado. Ignora campos que no conoce (de una versión más nueva)."""
         datos = datos or {}
         servicios: dict[str, Servicio] = {}
         for crudo in datos.get("servicios", []):
-            crudo = dict(crudo)
-            crudo["precios"] = [Precio(**p) for p in crudo.get("precios", [])]
+            crudo = _solo_campos(Servicio, crudo)
+            crudo["precios"] = [Precio(**_solo_campos(Precio, p)) for p in crudo.get("precios", [])]
             servicio = Servicio(**crudo)
             servicios[servicio.id] = servicio
-        pagos = [Pago(**p) for p in datos.get("pagos", [])]
+        pagos = [Pago(**_solo_campos(Pago, p)) for p in datos.get("pagos", [])]
         return cls(servicios=servicios, pagos=pagos)
+
+    def validar(self) -> Datos:
+        """Comprueba que todo sea coherente (para datos importados de un archivo)."""
+        for servicio in self.servicios.values():
+            servicio.validar()
+        vistos = set()
+        for pago in self.pagos:
+            if pago.servicio_id not in self.servicios:
+                raise ErrorFacturas(f"Hay un pago de un servicio que no existe: {pago.servicio_id!r}")
+            validar_periodo(pago.periodo)
+            _elegir(pago.estado, ESTADOS, "estado")
+            if pago.origen is not None:
+                _elegir(pago.origen, ORIGENES, "origen")
+            try:
+                date.fromisoformat(pago.vence)
+                if pago.pagado_el:
+                    date.fromisoformat(pago.pagado_el)
+            except (TypeError, ValueError):
+                raise ErrorFacturas(f"Fecha inválida en el pago {pago.servicio_id} {pago.periodo}") from None
+            pago.estimado = _importe(pago.estimado, "estimado")
+            if pago.real is not None:
+                pago.real = _importe(pago.real, "real")
+            clave = (pago.servicio_id, pago.periodo)
+            if clave in vistos:
+                raise ErrorFacturas(f"Pago repetido: {pago.servicio_id} {pago.periodo}")
+            vistos.add(clave)
+        return self
 
     # -- búsquedas -----------------------------------------------------------
 
@@ -322,6 +355,13 @@ class Datos:
         return servicio.moneda if servicio else "pesos"
 
 
+def _solo_campos(clase: type, crudo: Any) -> dict[str, Any]:
+    if not isinstance(crudo, dict):
+        raise ErrorFacturas(f"Dato inválido: se esperaba un objeto y llegó {type(crudo).__name__}")
+    nombres = {f.name for f in fields(clase)}
+    return {k: v for k, v in crudo.items() if k in nombres}
+
+
 def nuevo_id(nombre: str, existentes: Iterable[str]) -> str:
     """Un id legible a partir del nombre: ``"UTE casa"`` → ``"ute_casa"`` (``_2`` si ya existe)."""
     import unicodedata
@@ -349,11 +389,15 @@ def agregar_servicio(
     importe: float,
     meses: Iterable[int] | None = None,
     desde: str | None = None,
+    anteriores_pagados: bool = False,
     **campos: Any,
 ) -> Servicio:
     """Da de alta un servicio con su precio inicial y genera sus pagos hasta el mes de hoy.
 
-    ``desde`` es el primer período del servicio (por defecto, el mes de hoy).
+    ``desde`` es el primer período del servicio (por defecto, el mes de hoy). Con
+    ``anteriores_pagados``, los pagos de los meses anteriores al de hoy quedan como pagados
+    (con el estimado y la fecha de vencimiento): sirve para cargar un servicio que ya se
+    venía pagando sin llenar la lista de vencidos.
     """
     alta = validar_periodo(desde) if desde else periodo_de(hoy)
     servicio = Servicio(
@@ -368,10 +412,17 @@ def agregar_servicio(
         raise ErrorFacturas(f"Ya existe el servicio {servicio.id!r}")
     datos.servicios[servicio.id] = servicio
     generar_pagos(datos, hoy)
+    if anteriores_pagados:
+        actual = periodo_de(hoy)
+        for pago in datos.pagos_de(servicio.id):
+            if pago.periodo < actual and pago.estado == "pendiente":
+                pago.estado, pago.real, pago.pagado_el, pago.origen = "pagado", pago.estimado, pago.vence, "manual"
     return servicio
 
 
-EDITABLES = {"nombre", "categoria", "moneda", "pago", "tipo", "dia_vence", "meses", "remitente", "notas"}
+EDITABLES = {
+    "nombre", "categoria", "moneda", "pago", "tipo", "dia_vence", "meses", "remitente", "notas", "auto_pagar",
+}
 
 
 def editar_servicio(datos: Datos, hoy: date, servicio_id: str, **cambios: Any) -> Servicio:
@@ -437,6 +488,44 @@ def reactivar(datos: Datos, hoy: date, servicio_id: str) -> Servicio:
     return servicio
 
 
+def borrar_servicio(datos: Datos, servicio_id: str) -> Servicio:
+    """Borra el servicio y todos sus pagos, para siempre (para lo cargado por error).
+
+    Para un servicio que se dejó de pagar está ``dar_de_baja``, que conserva el historial.
+    """
+    servicio = datos.servicios.pop(servicio_id, None)
+    if servicio is None:
+        raise ErrorFacturas(f"No existe el servicio {servicio_id!r}")
+    datos.pagos = [p for p in datos.pagos if p.servicio_id != servicio_id]
+    return servicio
+
+
+def _actualizar_estimados(datos: Datos, servicio: Servicio, desde: str) -> list[Pago]:
+    """Los pendientes sin importe real desde ``desde`` toman el precio vigente en su mes."""
+    actualizados = []
+    for pago in datos.pagos_de(servicio.id):
+        if pago.periodo >= desde and pago.estado == "pendiente" and pago.real is None:
+            nuevo = servicio.precio_actual(pago.periodo)
+            if nuevo is not None and nuevo != pago.estimado:
+                pago.estimado = nuevo
+                actualizados.append(pago)
+    return actualizados
+
+
+def borrar_precio(datos: Datos, servicio_id: str, desde: str) -> list[Pago]:
+    """Quita una entrada del historial de precios (un precio mal cargado).
+
+    Como en ``cambiar_precio``, solo se recalculan los pendientes sin importe real desde ese mes.
+    """
+    servicio = datos.servicio(servicio_id)
+    if not any(p.desde == desde for p in servicio.precios):
+        raise ErrorFacturas(f"{servicio.nombre} no tiene un precio desde {desde}")
+    if len(servicio.precios) == 1:
+        raise ErrorFacturas(f"Es el único precio de {servicio.nombre}: cambialo en lugar de quitarlo")
+    servicio.precios = [p for p in servicio.precios if p.desde != desde]
+    return _actualizar_estimados(datos, servicio, desde)
+
+
 def cambiar_precio(datos: Datos, servicio_id: str, importe: float, desde: str) -> list[Pago]:
     """Agrega un precio desde un período (o reemplaza el que ya empezaba ese mes).
 
@@ -448,14 +537,7 @@ def cambiar_precio(datos: Datos, servicio_id: str, importe: float, desde: str) -
     importe = _importe(importe)
     servicio.precios = [p for p in servicio.precios if p.desde != desde] + [Precio(desde=desde, importe=importe)]
     servicio.validar()
-    actualizados = []
-    for pago in datos.pagos_de(servicio_id):
-        if pago.periodo >= desde and pago.estado == "pendiente" and pago.real is None:
-            nuevo = servicio.precio_actual(pago.periodo)
-            if nuevo is not None and nuevo != pago.estimado:
-                pago.estimado = nuevo
-                actualizados.append(pago)
-    return actualizados
+    return _actualizar_estimados(datos, servicio, desde)
 
 
 # ---------------------------------------------------------------------------
@@ -494,6 +576,31 @@ def _crear_pago(datos: Datos, servicio: Servicio, periodo: str) -> Pago:
     )
     datos.pagos.append(pago)
     return pago
+
+
+def pagar_debitos(datos: Datos, hoy: date) -> list[Pago]:
+    """Marca como pagados los débitos automáticos (con ``auto_pagar``) que ya vencieron.
+
+    Se registran con el importe anotado o el estimado y la fecha de vencimiento; si el
+    banco cobró otra cosa, se corrige después. Es idempotente.
+    """
+    pagados = []
+    for pago in datos.pagos:
+        servicio = datos.servicios.get(pago.servicio_id)
+        if (servicio and servicio.auto_pagar and servicio.pago == "debito" and pago.estado == "pendiente"
+                and pago.vence <= hoy.isoformat()):
+            pago.estado, pago.real, pago.pagado_el, pago.origen = "pagado", pago.importe, pago.vence, "automatico"
+            pagados.append(pago)
+    return pagados
+
+
+def mantenimiento(datos: Datos, hoy: date) -> list[Pago]:
+    """Lo que se hace al arrancar y cada medianoche: generar los pagos y pagar los débitos.
+
+    Devuelve los pagos que cambiaron, sin repetir (uno recién generado puede también pagarse).
+    """
+    cambiados = generar_pagos(datos, hoy) + pagar_debitos(datos, hoy)
+    return list({id(p): p for p in cambiados}.values())
 
 
 # ---------------------------------------------------------------------------
@@ -554,6 +661,39 @@ def registrar_pago(
     if nota is not None:
         pago.nota = nota
     return pago
+
+
+def registrar_pagos_hasta(
+    datos: Datos,
+    hoy: date,
+    servicio_id: str,
+    hasta: str,
+    *,
+    real: float | None = None,
+    fecha: date | None = None,
+    nota: str | None = None,
+    origen: str = "manual",
+) -> list[Pago]:
+    """Registra juntos todos los pendientes del servicio hasta ``hasta`` (incluido).
+
+    Si ``hasta`` es un mes futuro, genera y paga también los meses que faltan (adelanto).
+    ``real`` es el importe de cada mes; sin él, el de cada pago (anotado o estimado).
+    """
+    validar_periodo(hasta)
+    servicio = datos.servicio(servicio_id)
+    pagados = []
+    pendientes_hasta = [p for p in datos.pagos_de(servicio_id) if p.estado == "pendiente" and p.periodo <= hasta]
+    for pago in pendientes_hasta:
+        pagados.append(registrar_pago(datos, hoy, servicio_id, periodo=pago.periodo, real=real, fecha=fecha,
+                                      nota=nota, origen=origen))
+    # Meses futuros que todavía no se generaron.
+    for periodo in periodos_entre(sumar_meses(periodo_de(hoy), 1), hasta):
+        if servicio.toca(periodo) and datos.pago(servicio_id, periodo) is None:
+            pagados.append(registrar_pago(datos, hoy, servicio_id, periodo=periodo, real=real, fecha=fecha,
+                                          nota=nota, origen=origen))
+    if not pagados:
+        raise ErrorFacturas(f"{servicio.nombre} no tiene pagos pendientes hasta {hasta}")
+    return sorted(pagados, key=lambda p: p.periodo)
 
 
 def anotar_importe(
@@ -917,3 +1057,50 @@ def descripcion_todo(datos: Datos, pago: Pago) -> str:
         f"importe={importe}; moneda={servicio.moneda if servicio else 'pesos'}; "
         f"pago={servicio.pago if servicio else 'manual'}; origen={pago.origen or 'manual'}"
     )
+
+
+# ---------------------------------------------------------------------------
+# Copia de seguridad
+# ---------------------------------------------------------------------------
+
+
+def exportar(datos: Datos, hoy: date) -> dict[str, Any]:
+    """Todo en un JSON que se puede guardar y volver a importar."""
+    return {"facturas": VERSION_EXPORTACION, "exportado": hoy.isoformat(), "datos": datos.a_dict()}
+
+
+def importar(datos: Datos, crudo: Any, modo: str = "combinar") -> dict[str, int]:
+    """Carga una copia exportada (o el contenido de ``.storage/facturas``).
+
+    - ``reemplazar``: todo lo actual se sustituye por la copia.
+    - ``combinar``: se agregan los servicios de la copia que no existan (por id), con sus pagos;
+      los que ya existen no se tocan.
+
+    Valida todo antes de cambiar nada. Devuelve cuántos servicios y pagos entraron.
+    """
+    _elegir(modo, MODOS_IMPORTAR, "modo")
+    if isinstance(crudo, dict) and isinstance(crudo.get("datos"), dict):
+        if crudo.get("facturas", 1) > VERSION_EXPORTACION:
+            raise ErrorFacturas("La copia es de una versión más nueva de Facturas")
+        crudo = crudo["datos"]
+    elif isinstance(crudo, dict) and isinstance(crudo.get("data"), dict):  # archivo de .storage
+        crudo = crudo["data"]
+    if not isinstance(crudo, dict) or not isinstance(crudo.get("servicios"), list):
+        raise ErrorFacturas("El archivo no es una copia de Facturas")
+    try:
+        copia = Datos.desde_dict(crudo).validar()
+    except ErrorFacturas:
+        raise
+    except (TypeError, ValueError, KeyError, AttributeError) as err:
+        raise ErrorFacturas(f"La copia tiene datos inválidos: {err}") from None
+
+    if modo == "reemplazar":
+        datos.servicios = copia.servicios
+        datos.pagos = copia.pagos
+        return {"servicios": len(copia.servicios), "pagos": len(copia.pagos)}
+
+    nuevos = {sid: s for sid, s in copia.servicios.items() if sid not in datos.servicios}
+    pagos = [p for p in copia.pagos if p.servicio_id in nuevos]
+    datos.servicios.update(nuevos)
+    datos.pagos.extend(pagos)
+    return {"servicios": len(nuevos), "pagos": len(pagos)}

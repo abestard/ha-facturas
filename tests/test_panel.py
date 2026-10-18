@@ -37,7 +37,7 @@ async def test_panel_registrado_solo_para_administradores(hass: HomeAssistant, e
     assert panel.require_admin is True
     config = panel.config["_panel_custom"]
     assert config["name"] == "facturas-panel"
-    assert config["module_url"] == "/facturas_panel/facturas-panel.js?v=0.4.0"
+    assert config["module_url"] == "/facturas_panel/facturas-panel.js?v=0.5.0"
 
 
 async def test_panel_se_quita_al_descargar(hass: HomeAssistant, entrada) -> None:

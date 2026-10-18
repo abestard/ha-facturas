@@ -1,24 +1,92 @@
 {
   "entity": {
     "sensor": {
-      "mes_previsto": { "default": "mdi:calendar-month" },
-      "mes_pagado": { "default": "mdi:cash-check" },
-      "mes_falta": { "default": "mdi:cash-clock" },
-      "anio_pagado": { "default": "mdi:cash-multiple" },
-      "proxima": { "default": "mdi:calendar-alert" }
+      "mes_previsto": {
+        "default": "mdi:calendar-month"
+      },
+      "mes_pagado": {
+        "default": "mdi:cash-check"
+      },
+      "mes_falta": {
+        "default": "mdi:cash-clock"
+      },
+      "anio_pagado": {
+        "default": "mdi:cash-multiple"
+      },
+      "proxima": {
+        "default": "mdi:calendar-alert"
+      },
+      "mes_previsto_pesos": {
+        "default": "mdi:calendar-month"
+      },
+      "mes_pagado_pesos": {
+        "default": "mdi:cash-check"
+      },
+      "mes_falta_pesos": {
+        "default": "mdi:cash-clock"
+      },
+      "anio_pagado_pesos": {
+        "default": "mdi:cash-multiple"
+      },
+      "mes_previsto_dolares": {
+        "default": "mdi:calendar-month"
+      },
+      "mes_pagado_dolares": {
+        "default": "mdi:cash-check"
+      },
+      "mes_falta_dolares": {
+        "default": "mdi:cash-clock"
+      },
+      "anio_pagado_dolares": {
+        "default": "mdi:cash-multiple"
+      }
     }
   },
   "services": {
-    "agregar_servicio": { "service": "mdi:plus-circle-outline" },
-    "editar_servicio": { "service": "mdi:pencil" },
-    "dar_de_baja": { "service": "mdi:archive-outline" },
-    "reactivar": { "service": "mdi:restore" },
-    "cambiar_precio": { "service": "mdi:tag-arrow-up" },
-    "anotar_importe": { "service": "mdi:receipt-text-outline" },
-    "registrar_pago": { "service": "mdi:cash-check" },
-    "corregir_pago": { "service": "mdi:cash-edit" },
-    "deshacer_pago": { "service": "mdi:undo" },
-    "omitir": { "service": "mdi:debug-step-over" },
-    "resumen": { "service": "mdi:chart-box-outline" }
+    "agregar_servicio": {
+      "service": "mdi:plus-circle-outline"
+    },
+    "editar_servicio": {
+      "service": "mdi:pencil"
+    },
+    "dar_de_baja": {
+      "service": "mdi:archive-outline"
+    },
+    "reactivar": {
+      "service": "mdi:restore"
+    },
+    "cambiar_precio": {
+      "service": "mdi:tag-arrow-up"
+    },
+    "anotar_importe": {
+      "service": "mdi:receipt-text-outline"
+    },
+    "registrar_pago": {
+      "service": "mdi:cash-check"
+    },
+    "corregir_pago": {
+      "service": "mdi:cash-edit"
+    },
+    "deshacer_pago": {
+      "service": "mdi:undo"
+    },
+    "omitir": {
+      "service": "mdi:debug-step-over"
+    },
+    "resumen": {
+      "service": "mdi:chart-box-outline"
+    },
+    "borrar_servicio": {
+      "service": "mdi:delete-forever"
+    },
+    "borrar_precio": {
+      "service": "mdi:tag-remove"
+    },
+    "exportar": {
+      "service": "mdi:database-export"
+    },
+    "importar": {
+      "service": "mdi:database-import"
+    }
   }
 }

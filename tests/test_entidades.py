@@ -54,9 +54,13 @@ async def test_ids_y_dispositivo(hass: HomeAssistant, facturas, entity_registry:
     assert ids == [
         "calendar.facturas",
         "sensor.facturas_anio_pagado",
+        "sensor.facturas_anio_pagado_dolares",  # Netflix está en dólares
         "sensor.facturas_mes_falta",
+        "sensor.facturas_mes_falta_dolares",
         "sensor.facturas_mes_pagado",
+        "sensor.facturas_mes_pagado_dolares",
         "sensor.facturas_mes_previsto",
+        "sensor.facturas_mes_previsto_dolares",
         "sensor.facturas_proxima",
         "todo.facturas",
     ]
